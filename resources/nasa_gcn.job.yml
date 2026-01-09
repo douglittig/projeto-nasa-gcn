@@ -1,45 +1,101 @@
-# The main job for nasa_gcn.
+# ==============================================================================
+# DATABRICKS JOB: NASA GCN Pipeline
+# ==============================================================================
+#
+# O que é um Job Databricks?
+# --------------------------
+# Um Job é uma unidade de execução agendada que pode conter múltiplas tasks
+# (tarefas) executadas em sequência ou paralelo. Jobs permitem orquestrar
+# workflows complexos com dependências entre tarefas.
+#
+# Este job orquestra 3 tarefas:
+#   1. notebook_task   → Executa notebook de validação
+#   2. refresh_pipeline → Atualiza o pipeline DLT (Delta Live Tables)
+#   3. main_task       → Executa o módulo Python principal
+#
+# Referência: https://docs.databricks.com/api/workspace/jobs/create
+# ==============================================================================
+
 resources:
   jobs:
     nasa_gcn_job:
       name: nasa_gcn_job
 
+      # ------------------------------------------------------------------------
+      # TRIGGER: Quando o job deve executar
+      # ------------------------------------------------------------------------
+      # Opções de trigger:
+      #   - periodic: Execução periódica (diária, horária, etc.)
+      #   - cron: Expressão cron para agendamento preciso
+      #   - file_arrival: Quando novos arquivos chegam em um path
+      #
+      # O trigger periódico garante exatamente 1 dia entre execuções,
+      # diferente de um cron que sempre executa no mesmo horário.
       trigger:
-        # Run this job every day, exactly one day from the last run; see https://docs.databricks.com/api/workspace/jobs/create#trigger
         periodic:
-          interval: 1
-          unit: DAYS
+          interval: 1 # Intervalo entre execuções
+          unit: DAYS # Unidade: HOURS, DAYS, WEEKS
 
+      # Notificações por email (descomentando, envia email quando job falha)
       #email_notifications:
       #  on_failure:
-      #    - your_email@example.com
+      #    - seu_email@exemplo.com
 
+      # ------------------------------------------------------------------------
+      # TASKS: Tarefas que compõem o job
+      # ------------------------------------------------------------------------
+      # Cada task pode ser:
+      #   - notebook_task: Executa um notebook
+      #   - pipeline_task: Atualiza um pipeline DLT
+      #   - python_wheel_task: Executa um pacote Python instalado
+      #   - spark_python_task: Executa um arquivo Python específico
+      #
+      # A ordem de execução é definida por 'depends_on'.
       tasks:
+        # ======================================================================
+        # TASK 1: Notebook de Validação/Entrada
+        # ======================================================================
+        # Primeira tarefa: executa um notebook simples para validação inicial.
+        # Útil para verificar conectividade, configurações antes do pipeline.
         - task_key: notebook_task
           notebook_task:
-            notebook_path: ../src/notebook.ipynb
+            notebook_path: ../src/notebook.ipynb # Caminho relativo ao bundle
 
+        # ======================================================================
+        # TASK 2: Atualização do Pipeline DLT
+        # ======================================================================
+        # Depende da task 1. Executa/atualiza o pipeline Delta Live Tables
+        # que ingere dados do NASA GCN Kafka.
+        # O ID do pipeline vem da definição em nasa_gcn.pipeline.yml
         - task_key: refresh_pipeline
           depends_on:
-            - task_key: notebook_task
+            - task_key: notebook_task # Aguarda notebook_task terminar
           pipeline_task:
+            # Referência ao pipeline definido neste mesmo bundle
             pipeline_id: ${resources.pipelines.nasa_gcn_pipeline.id}
 
+        # ======================================================================
+        # TASK 3: Execução do Módulo Python Principal
+        # ======================================================================
+        # Tarefa final: executa o código Python empacotado como wheel.
+        # O entry_point 'main' corresponde ao definido em pyproject.toml
         - task_key: main_task
           depends_on:
-            - task_key: refresh_pipeline
-          environment_key: default
+            - task_key: refresh_pipeline # Aguarda pipeline terminar
+          environment_key: default # Usa o ambiente definido abaixo
           python_wheel_task:
-            package_name: nasa_gcn
-            entry_point: main
+            package_name: nasa_gcn # Nome do pacote Python
+            entry_point: main # Função/script a executar
 
-      # A list of task execution environment specifications that can be referenced by tasks of this job.
+      # ------------------------------------------------------------------------
+      # ENVIRONMENTS: Ambientes de execução para as tasks
+      # ------------------------------------------------------------------------
+      # Define as dependências Python que serão instaladas no cluster.
+      # O wheel (*.whl) é construído pelo 'artifacts' em databricks.yml
       environments:
         - environment_key: default
-
-          # Full documentation of this spec can be found at:
-          # https://docs.databricks.com/api/workspace/jobs/create#environments-spec
           spec:
-            environment_version: "2"
+            environment_version: "2" # Versão do spec de ambiente
             dependencies:
-              - ../dist/*.whl
+              - ../dist/*.whl # Wheel gerado pelo build
+

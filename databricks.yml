@@ -1,43 +1,101 @@
-# This is a Databricks asset bundle definition for nasa_gcn.
-# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+# ==============================================================================
+# DATABRICKS ASSET BUNDLE (DAB) - NASA GCN Pipeline
+# ==============================================================================
+#
+# O que é um Databricks Asset Bundle?
+# ------------------------------------
+# É a forma declarativa de definir e gerenciar recursos Databricks (jobs,
+# pipelines, notebooks) como código. Permite versionamento, CI/CD e
+# reproducibilidade do ambiente.
+#
+# Comandos principais:
+#   - databricks bundle validate    → Valida a configuração
+#   - databricks bundle deploy      → Deploy para o workspace
+#   - databricks bundle run <job>   → Executa um job
+#   - databricks bundle destroy     → Remove recursos do workspace
+#
+# Documentação: https://docs.databricks.com/dev-tools/bundles/index.html
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# BUNDLE: Identificação do projeto
+# ------------------------------------------------------------------------------
+# Define o nome e identificador único do bundle. O UUID é gerado automaticamente
+# e usado internamente para tracking de recursos.
 bundle:
   name: nasa_gcn
   uuid: 5319b056-d74a-46ce-b392-88f283579cd2
 
+# ------------------------------------------------------------------------------
+# ARTIFACTS: Artefatos a serem construídos e distribuídos
+# ------------------------------------------------------------------------------
+# Define como o código Python será empacotado. Neste caso, usamos 'uv' (um
+# gerenciador de pacotes Python ultrarrápido) para construir um wheel (.whl).
+# O wheel será instalado automaticamente nos clusters Databricks durante o deploy.
 artifacts:
   python_artifact:
-    type: whl
-    build: uv build --wheel
+    type: whl # Tipo: Python wheel
+    build: uv build --wheel # Comando para construir o pacote
 
+# ------------------------------------------------------------------------------
+# INCLUDE: Arquivos de recursos adicionais
+# ------------------------------------------------------------------------------
+# Inclui definições de jobs e pipelines de arquivos YAML separados.
+# Isso mantém o bundle modular e organizado.
 include:
-  - resources/*.yml
-  - resources/*/*.yml
+  - resources/*.yml # Jobs e pipelines no diretório resources/
+  - resources/*/*.yml # Sub-diretórios (para estruturas maiores)
 
-# Variables for GCN Kafka credentials
-# Set via: databricks bundle deploy --var gcn_client_id=$GCN_CLIENT_ID --var gcn_client_secret=$GCN_CLIENT_SECRET
+# ------------------------------------------------------------------------------
+# VARIABLES: Variáveis de configuração (credenciais, secrets)
+# ------------------------------------------------------------------------------
+# Variáveis podem ser definidas via CLI durante o deploy:
+#   databricks bundle deploy --var gcn_client_id=XXX --var gcn_client_secret=YYY
+#
+# Ou via arquivo de configuração local (não versionado).
+# As variáveis são injetadas nas configurações dos recursos (jobs, pipelines).
 variables:
   gcn_client_id:
-    description: "NASA GCN OAuth Client ID"
+    description: "NASA GCN OAuth Client ID - Obtido em https://gcn.nasa.gov/quickstart"
   gcn_client_secret:
-    description: "NASA GCN OAuth Client Secret"
+    description: "NASA GCN OAuth Client Secret - Mantido em segredo, nunca versionar!"
+
+# ------------------------------------------------------------------------------
+# TARGETS: Ambientes de deployment (dev, staging, prod)
+# ------------------------------------------------------------------------------
+# Cada target representa um ambiente isolado no workspace Databricks.
+# Permite ter versões separadas para desenvolvimento e produção.
 
 targets:
+  # ============================================================================
+  # DEV (Desenvolvimento)
+  # ============================================================================
+  # Ambiente padrão para testes e desenvolvimento.
+  # Características:
+  #   - Recursos prefixados com '[dev <seu_usuário>]' para evitar conflitos
+  #   - Schedules e triggers são PAUSADOS por padrão (segurança)
+  #   - Ideal para testar mudanças antes de ir para produção
   dev:
-    # The default target uses 'mode: development' to create a development copy.
-    # - Deployed resources get prefixed with '[dev my_user_name]'
-    # - Any job schedules and triggers are paused by default.
-    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
-    mode: development
-    default: true
+    mode: development # Modo desenvolvimento (prefixos, pausas)
+    default: true # Target padrão quando não especificado
     workspace:
       host: https://dbc-5fa38af7-00ad.cloud.databricks.com
 
+  # ============================================================================
+  # PROD (Produção)
+  # ============================================================================
+  # Ambiente de produção real.
+  # Características:
+  #   - Sem prefixos nos nomes dos recursos
+  #   - Schedules e triggers ATIVOS
+  #   - root_path fixo para garantir apenas uma cópia
   prod:
-    mode: production
+    mode: production # Modo produção (sem prefixos, triggers ativos)
     workspace:
       host: https://dbc-5fa38af7-00ad.cloud.databricks.com
-      # We explicitly deploy to /Workspace/Users/dltreinamentos.data@gmail.com to make sure we only have a single copy.
+      # Caminho fixo evita múltiplas cópias do bundle na produção
       root_path: /Workspace/Users/dltreinamentos.data@gmail.com/.bundle/${bundle.name}/${bundle.target}
+    # Permissões: define quem pode gerenciar os recursos em produção
     permissions:
       - user_name: dltreinamentos.data@gmail.com
-        level: CAN_MANAGE
+        level: CAN_MANAGE # Níveis: CAN_VIEW, CAN_RUN, CAN_MANAGE

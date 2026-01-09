@@ -1,17 +1,74 @@
-# The main pipeline for nasa_gcn
+# ==============================================================================
+# DELTA LIVE TABLES (DLT) PIPELINE: NASA GCN Data Ingestion
+# ==============================================================================
+#
+# O que é um Pipeline DLT?
+# ------------------------
+# Delta Live Tables é um framework declarativo para construir pipelines de dados
+# confiáveis e incrementais. Em vez de escrever código imperativo, você declara
+# QUAIS tabelas quer criar e COMO transformar os dados. O DLT cuida de:
+#
+#   ✓ Ingestão incremental (processa apenas dados novos)
+#   ✓ Qualidade de dados (expectations/validações)
+#   ✓ Gerenciamento de schema (evoluções automáticas)
+#   ✓ Dependências entre tabelas (DAG automático)
+#   ✓ Monitoramento e lineage
+#
+# Arquitetura Medallion (Bronze/Silver/Gold):
+# -------------------------------------------
+#   Bronze = Dados brutos, exatamente como chegaram (gcn_raw)
+#   Silver = Dados limpos, filtrados, tipados (gcn_classic_text, etc.)
+#   Gold   = Dados agregados, prontos para consumo (futuro)
+#
+# Referência: https://docs.databricks.com/delta-live-tables/
+# ==============================================================================
+
 resources:
   pipelines:
     nasa_gcn_pipeline:
       name: nasa_gcn_pipeline
+
+      # ------------------------------------------------------------------------
+      # CATALOG E SCHEMA: Onde as tabelas serão criadas
+      # ------------------------------------------------------------------------
+      # Unity Catalog organiza dados em: catalog.schema.table
+      # O schema usa ${bundle.target} para ter schemas separados por ambiente:
+      #   - dev: sandbox.nasa_gcn_dev
+      #   - prod: sandbox.nasa_gcn_prod
       catalog: sandbox
       schema: nasa_gcn_${bundle.target}
+
+      # ------------------------------------------------------------------------
+      # SERVERLESS: Modo de execução
+      # ------------------------------------------------------------------------
+      # Com serverless=true, o Databricks gerencia a infraestrutura.
+      # Sem necessidade de configurar clusters manualmente.
+      # Custo: pay-per-use, ideal para pipelines intermitentes.
       serverless: true
+
+      # ------------------------------------------------------------------------
+      # LIBRARIES: Notebooks que definem as tabelas DLT
+      # ------------------------------------------------------------------------
+      # O notebook pipeline.ipynb contém as definições de tabelas usando
+      # o decorador @dlt.table
       libraries:
         - notebook:
             path: ../src/pipeline.ipynb
 
+      # ------------------------------------------------------------------------
+      # CONFIGURATION: Variáveis passadas para o pipeline
+      # ------------------------------------------------------------------------
+      # Estas configurações ficam disponíveis via spark.conf.get() dentro
+      # do notebook. É assim que as credenciais do NASA GCN são injetadas
+      # de forma segura (sem hardcoding no código).
+      #
+      # As variáveis ${var.gcn_client_id} e ${var.gcn_client_secret} são
+      # definidas em databricks.yml e passadas via CLI no deploy.
       configuration:
+        # Path para importar módulos Python locais
         bundle.sourcePath: ${workspace.file_path}/src
-        # GCN Kafka credentials (loaded from environment or .env)
+
+        # Credenciais do NASA GCN Kafka (OAuth)
+        # IMPORTANTE: Nunca commit credenciais diretamente aqui!
         GCN_CLIENT_ID: ${var.gcn_client_id}
         GCN_CLIENT_SECRET: ${var.gcn_client_secret}
