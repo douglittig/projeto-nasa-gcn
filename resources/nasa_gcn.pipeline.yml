@@ -3,7 +3,7 @@ resources:
   pipelines:
     nasa_gcn_pipeline:
       name: nasa_gcn_pipeline
-      catalog: workspace
+      catalog: sandbox
       schema: nasa_gcn_${bundle.target}
       serverless: true
       libraries:
@@ -12,3 +12,6 @@ resources:
 
       configuration:
         bundle.sourcePath: ${workspace.file_path}/src
+        # GCN Kafka credentials (loaded from environment or .env)
+        GCN_CLIENT_ID: ${var.gcn_client_id}
+        GCN_CLIENT_SECRET: ${var.gcn_client_secret}
