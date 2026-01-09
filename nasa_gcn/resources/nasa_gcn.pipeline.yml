@@ -1,0 +1,14 @@
+# The main pipeline for nasa_gcn
+resources:
+  pipelines:
+    nasa_gcn_pipeline:
+      name: nasa_gcn_pipeline
+      catalog: workspace
+      schema: nasa_gcn_${bundle.target}
+      serverless: true
+      libraries:
+        - notebook:
+            path: ../src/pipeline.ipynb
+
+      configuration:
+        bundle.sourcePath: ${workspace.file_path}/src

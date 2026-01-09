@@ -1,19 +1,17 @@
-# This is a Databricks asset bundle definition for nasagcn.
+# This is a Databricks asset bundle definition for nasa_gcn.
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
-  name: nasagcn
-  uuid: d2360feb-5736-48a2-9e52-102e976269c6
+  name: nasa_gcn
+  uuid: 5319b056-d74a-46ce-b392-88f283579cd2
+
+artifacts:
+  python_artifact:
+    type: whl
+    build: uv build --wheel
 
 include:
   - resources/*.yml
   - resources/*/*.yml
-
-# Variable declarations. These variables are assigned in the dev/prod targets below.
-variables:
-  catalog:
-    description: The catalog to use
-  schema:
-    description: The schema to use
 
 targets:
   dev:
@@ -25,18 +23,13 @@ targets:
     default: true
     workspace:
       host: https://dbc-5fa38af7-00ad.cloud.databricks.com
-    variables:
-      catalog: sandbox
-      schema: dev
+
   prod:
     mode: production
     workspace:
       host: https://dbc-5fa38af7-00ad.cloud.databricks.com
       # We explicitly deploy to /Workspace/Users/dltreinamentos.data@gmail.com to make sure we only have a single copy.
       root_path: /Workspace/Users/dltreinamentos.data@gmail.com/.bundle/${bundle.name}/${bundle.target}
-    variables:
-      catalog: sandbox
-      schema: prod
     permissions:
       - user_name: dltreinamentos.data@gmail.com
         level: CAN_MANAGE

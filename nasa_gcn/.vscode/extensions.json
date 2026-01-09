@@ -1,7 +1,7 @@
 {
     "recommendations": [
         "databricks.databricks",
-        "redhat.vscode-yaml",
-        "ms-python.black-formatter"
+        "ms-python.vscode-pylance",
+        "redhat.vscode-yaml"
     ]
 }
