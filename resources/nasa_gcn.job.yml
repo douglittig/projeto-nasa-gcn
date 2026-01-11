@@ -53,13 +53,17 @@ resources:
       # A ordem de execução é definida por 'depends_on'.
       tasks:
         # ======================================================================
-        # TASK 1: Notebook de Validação/Entrada
+        # TASK 1: Validação de Pré-requisitos
         # ======================================================================
-        # Primeira tarefa: executa um notebook simples para validação inicial.
-        # Útil para verificar conectividade, configurações antes do pipeline.
+        # Primeira tarefa: executa validações antes do pipeline DLT.
+        # Verifica:
+        #   ✓ Módulo nasa_gcn instalado corretamente (wheel)
+        #   ✓ Credenciais GCN_CLIENT_ID e GCN_CLIENT_SECRET configuradas
+        #   ✓ Conectividade TCP com kafka.gcn.nasa.gov:9092
+        # Se falhar, o job para aqui, economizando recursos.
         - task_key: notebook_task
           notebook_task:
-            notebook_path: ../src/notebook.ipynb # Caminho relativo ao bundle
+            notebook_path: ../src/notebook.ipynb # Notebook de validação
 
         # ======================================================================
         # TASK 2: Atualização do Pipeline DLT
