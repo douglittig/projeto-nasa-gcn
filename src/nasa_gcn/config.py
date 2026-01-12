@@ -96,7 +96,7 @@ def get_kafka_options() -> dict:
         ),
         "kafka.sasl.oauthbearer.token.endpoint.url": OAUTH_TOKEN_ENDPOINT,
         "failOnDataLoss": "false",
-        "startingOffsets": "latest",
+        "startingOffsets": "earliest",
     }
     
     # Use subscribePattern for flexible matching
