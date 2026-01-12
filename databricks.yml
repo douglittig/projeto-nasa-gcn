@@ -58,6 +58,7 @@ sync:
   include:
     - src/*.py
     - src/nasa_gcn/*.py
+    - dist/*.whl
 
 # ------------------------------------------------------------------------------
 # VARIABLES: Variáveis de configuração (credenciais, secrets)
