@@ -202,6 +202,19 @@ FROM sandbox.nasa_gcn_dev.gcn_classic_voevent
 LIMIT 5;
 
 -- ============================================================================
+-- SILVER LAYER - gcn_classic_binary (RAG)
+-- ============================================================================
+
+SELECT 
+    pkt_type_name, 
+    burst_datetime, 
+    burst_ra_deg, 
+    burst_dec_deg, 
+    document_text 
+FROM sandbox.nasa_gcn_dev.gcn_classic_binary 
+LIMIT 5;
+
+-- ============================================================================
 -- SILVER LAYER - Outras tabelas
 -- ============================================================================
 
