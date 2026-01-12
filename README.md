@@ -157,7 +157,15 @@ databricks bundle validate
 │       │ │       │ │       │ │       │ │lars   │ │gwalert│ │beat   │
 └───────┘ └───────┘ └───────┘ └───────┘ └───────┘ └───────┘ └───────┘
                          Silver Layer
-```
+                              │
+                              ▼
+                        ┌─────────────┐
+                        │ Gold Layer  │  gcn_events_summarized
+                        └──────┬──────┘
+                               ▼
+                        ┌─────────────┐
+                        │ Vectors/RAG │  gcn_embeddings
+                        └─────────────┘
 
 ## 📊 Tabelas
 
@@ -171,6 +179,7 @@ databricks bundle validate
 | `gcn_circulars` | Silver | Circulares astronômicas ([Docs RAG](docs/GCN_CIRCULARS_RAG.md)) |
 | `igwn_gwalert` | Silver | Alertas de ondas gravitacionais ([Docs RAG](docs/IGWN_GWALERT_RAG.md)) |
 | `gcn_heartbeat` | Silver | Mensagens de teste/heartbeat |
+| `gcn_events_summarized` | **Gold** | Joia da Coroa: Eventos consolidados com narrativa ([Docs](docs/GOLD_LAYER_RAG.md)) |
 
 ## 🔗 Referências
 
