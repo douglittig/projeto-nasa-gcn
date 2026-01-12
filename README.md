@@ -164,12 +164,12 @@ databricks bundle validate
 | Tabela | Camada | Descrição |
 |--------|--------|-----------|
 | `gcn_raw` | Bronze | Todas as mensagens raw do Kafka |
-| `gcn_classic_text` | Silver | Alertas em formato texto |
-| `gcn_classic_voevent` | Silver | Alertas em formato VoEvent XML |
-| `gcn_classic_binary` | Silver | Alertas em formato binário |
-| `gcn_notices` | Silver | Novos alertas em formato JSON |
-| `gcn_circulars` | Silver | Circulares astronômicas |
-| `igwn_gwalert` | Silver | Alertas de ondas gravitacionais |
+| `gcn_classic_text` | Silver | Alertas em formato texto ([Docs RAG](docs/GCN_CLASSIC_TEXT_RAG.md)) |
+| `gcn_classic_voevent` | Silver | Alertas em formato VoEvent XML ([Docs RAG](docs/GCN_CLASSIC_VOEVENT_RAG.md)) |
+| `gcn_classic_binary` | Silver | Alertas em formato binário ([Docs RAG](docs/GCN_CLASSIC_BINARY_RAG.md)) |
+| `gcn_notices` | Silver | Novos alertas em formato JSON ([Docs RAG](docs/GCN_NOTICES_RAG.md)) |
+| `gcn_circulars` | Silver | Circulares astronômicas ([Docs RAG](docs/GCN_CIRCULARS_RAG.md)) |
+| `igwn_gwalert` | Silver | Alertas de ondas gravitacionais ([Docs RAG](docs/IGWN_GWALERT_RAG.md)) |
 | `gcn_heartbeat` | Silver | Mensagens de teste/heartbeat |
 
 ## 🔗 Referências
