@@ -175,7 +175,21 @@ FROM sandbox.nasa_gcn_dev.igwn_gwalert
 WHERE significant = 'true';
 
 -- ============================================================================
--- SILVER LAYER - Outras tabelas
+-- SILVER LAYER - gcn_classic_text (RAG)
+-- ============================================================================
+
+-- Validar extração de campos e document_text
+SELECT 
+    title, 
+    notice_type, 
+    notice_date, 
+    document_text 
+FROM sandbox.nasa_gcn_dev.gcn_classic_text 
+WHERE title IS NOT NULL
+LIMIT 5;
+
+-- ============================================================================
+-- SILVER LAYER - Outras tabelas (gcn_classic_voevent, etc.)
 -- ============================================================================
 
 -- gcn_classic_text
