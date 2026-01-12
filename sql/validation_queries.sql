@@ -189,7 +189,20 @@ WHERE title IS NOT NULL
 LIMIT 5;
 
 -- ============================================================================
--- SILVER LAYER - Outras tabelas (gcn_classic_voevent, etc.)
+-- SILVER LAYER - gcn_classic_voevent (RAG)
+-- ============================================================================
+
+SELECT 
+    ivorn,
+    role,
+    date,
+    concept,
+    document_text 
+FROM sandbox.nasa_gcn_dev.gcn_classic_voevent 
+LIMIT 5;
+
+-- ============================================================================
+-- SILVER LAYER - Outras tabelas
 -- ============================================================================
 
 -- gcn_classic_text
