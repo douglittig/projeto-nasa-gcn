@@ -54,6 +54,7 @@ resources:
       libraries:
         - notebook:
             path: ../src/pipeline.ipynb
+        - whl: ../dist/*.whl
 
       # ------------------------------------------------------------------------
       # CONFIGURATION: Variáveis passadas para o pipeline
