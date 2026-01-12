@@ -141,6 +141,40 @@ WHERE messenger = 'Neutrino'
 LIMIT 10;
 
 -- ============================================================================
+-- SILVER LAYER - igwn_gwalert (RAG)
+-- ============================================================================
+
+-- Validar campos extraídos e document_text
+SELECT 
+    superevent_id, 
+    alert_type, 
+    group,
+    pipeline,
+    instruments,
+    prob_bns,
+    prob_bbh,
+    document_text
+FROM sandbox.nasa_gcn_dev.igwn_gwalert
+WHERE superevent_id IS NOT NULL
+LIMIT 10;
+
+-- Verificar formatação dos instrumentos (não deve ter colchetes ou aspas)
+SELECT instruments, topic
+FROM sandbox.nasa_gcn_dev.igwn_gwalert 
+WHERE instruments LIKE '%[%' OR instruments LIKE '%"%'
+LIMIT 5;
+
+-- Verificar alertas significativos
+SELECT 
+    superevent_id,
+    significant,
+    far,
+    prob_has_ns,
+    prob_has_remnant
+FROM sandbox.nasa_gcn_dev.igwn_gwalert
+WHERE significant = 'true';
+
+-- ============================================================================
 -- SILVER LAYER - Outras tabelas
 -- ============================================================================
 
@@ -160,9 +194,7 @@ FROM sandbox.nasa_gcn_dev.gcn_classic_voevent
 GROUP BY event_type
 ORDER BY total DESC;
 
--- igwn_gwalert (ondas gravitacionais)
-SELECT COUNT(*) as total_gw_alerts
-FROM sandbox.nasa_gcn_dev.igwn_gwalert;
+-- igwn_gwalert movido para seção RAG acima
 
 -- gcn_heartbeat (monitoramento)
 SELECT 
