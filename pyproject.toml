@@ -5,6 +5,8 @@ authors = [{ name = "dltreinamentos.data@gmail.com" }]
 requires-python = ">=3.10,<=3.13"
 dependencies = [
     "python-dotenv>=1.0.0",
+    "sentence-transformers>=2.2.2",
+    "databricks-vectorsearch>=0.23",
 ]
 
 [dependency-groups]

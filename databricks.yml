@@ -42,9 +42,23 @@ artifacts:
 # ------------------------------------------------------------------------------
 # Inclui definições de jobs e pipelines de arquivos YAML separados.
 # Isso mantém o bundle modular e organizado.
+# Inclui definições de jobs e pipelines de arquivos YAML separados.
+# Isso mantém o bundle modular e organizado.
+# Inclui definições de jobs e pipelines de arquivos YAML separados.
+# Isso mantém o bundle modular e organizado.
 include:
   - resources/*.yml # Jobs e pipelines no diretório resources/
   - resources/*/*.yml # Sub-diretórios (para estruturas maiores)
+
+# ------------------------------------------------------------------------------
+# SYNC: Sincronização de arquivos
+# ------------------------------------------------------------------------------
+# Define quais arquivos adicionais devem ser enviados para o workspace.
+sync:
+  include:
+    - src/*.py
+    - src/nasa_gcn/*.py
+    - dist/*.whl
 
 # ------------------------------------------------------------------------------
 # VARIABLES: Variáveis de configuração (credenciais, secrets)
