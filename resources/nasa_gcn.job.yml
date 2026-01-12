@@ -91,17 +91,6 @@ resources:
             package_name: nasa_gcn # Nome do pacote Python
             entry_point: main # Função/script a executar
 
-        # ======================================================================
-        # TASK 4: Vectorization (RAG)
-        # ======================================================================
-        # Gera embeddings para os eventos da camada Gold.
-        - task_key: vectorization_task
-          depends_on:
-            - task_key: main_task # Executa após o job principal (ou refresh_pipeline se preferir)
-          spark_python_task:
-            python_file: ../src/vectorization_job.py
-          environment_key: default
-
       # ------------------------------------------------------------------------
       # ENVIRONMENTS: Ambientes de execução para as tasks
       # ------------------------------------------------------------------------
@@ -113,5 +102,4 @@ resources:
             environment_version: "2" # Versão do spec de ambiente
             dependencies:
               - ../dist/*.whl # Wheel gerado pelo build
-              - "sentence-transformers" # PyPI package needed for embeddings
 
