@@ -115,27 +115,58 @@ GCN_CLIENT_SECRET=seu_client_secret_aqui
 databricks bundle validate
 ```
 
-### Deploy para desenvolvimento
+### 🚀 Deploy e Execução (Recomendado)
+
+Use o script `deploy.sh` que carrega as credenciais do `.env` automaticamente:
 
 ```bash
-# Carrega variáveis do .env e faz deploy
-. ./.env && databricks bundle deploy --target dev \
-  --var gcn_client_id=$GCN_CLIENT_ID \
-  --var gcn_client_secret=$GCN_CLIENT_SECRET
+# Apenas deploy (envia código para o Databricks)
+./deploy.sh
+
+# Deploy + executa o job completo
+./deploy.sh run
+
+# Apenas executa o job (sem fazer novo deploy)
+./deploy.sh run-only
 ```
 
-### Executar pipeline
+**Saída esperada:**
+```
+============================================================
+NASA GCN Pipeline - Deploy Script
+============================================================
+  Target:  dev
+  Profile: dltreinamentos.data@gmail.com
+============================================================
+🚀 Deploying bundle...
+✅ Deploy concluído!
+🏃 Executando job...
+```
+
+### Configurações Avançadas
 
 ```bash
-# Usando BUNDLE_VAR_* environment variables
-. ./.env && \
-  BUNDLE_VAR_gcn_client_id=$GCN_CLIENT_ID \
-  BUNDLE_VAR_gcn_client_secret=$GCN_CLIENT_SECRET \
-  databricks bundle run nasa_gcn_pipeline
+# Deploy para produção
+TARGET=prod ./deploy.sh run
+
+# Usar outro perfil do Databricks
+PROFILE=meu-perfil ./deploy.sh run
 ```
 
+### Deploy Manual (Alternativa)
+
+Se preferir executar manualmente sem o script:
+
+```bash
+source .env
+export BUNDLE_VAR_gcn_client_id=$GCN_CLIENT_ID
+export BUNDLE_VAR_gcn_client_secret=$GCN_CLIENT_SECRET
+databricks bundle deploy -t dev
+databricks bundle run nasa_gcn_job
+```
 
 > 📖 [Documentação do Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/index.html)
+
 
 ## 🏗️ Arquitetura
 
