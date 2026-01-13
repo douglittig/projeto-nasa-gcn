@@ -219,6 +219,194 @@ WHERE g.classification = 'short'
 
 ---
 
+## 🖼️ Ingestão e Processamento de Imagens
+
+Os dados GCN frequentemente incluem URLs para imagens científicas (sky maps, finding charts, light curves). Esta seção descreve estratégias para ingestão e uso dessas imagens.
+
+### Tipos de Imagens nos Dados GCN
+
+| Tipo | Formato | Fonte | Descrição |
+|------|---------|-------|-----------|
+| **Sky Maps** | FITS, PNG | GraceDB, Fermi | Mapas de probabilidade de localização |
+| **Finding Charts** | PNG, PDF | Circulars | Imagens do campo com candidatos marcados |
+| **Light Curves** | PNG, FITS | Swift, Fermi | Curvas de luz de GRBs |
+| **Spectrograms** | PNG | Fermi/GBM | Espectros de energia |
+
+---
+
+### Nova Tabela: `gold_image_catalog`
+
+**Objetivo**: Catálogo de imagens associadas a eventos GCN.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `event_id` | STRING | Identificador do evento |
+| `image_url` | STRING | URL original da imagem |
+| `image_type` | STRING | skymap, finding_chart, lightcurve, spectrogram |
+| `format` | STRING | FITS, PNG, PDF, JPEG |
+| `source` | STRING | Origem (GraceDB, Circular, Notice) |
+| `circular_id` | INT | ID da circular (se aplicável) |
+| `downloaded_path` | STRING | Caminho local/cloud (se baixado) |
+| `download_status` | STRING | pending, success, failed |
+| `file_size_bytes` | LONG | Tamanho do arquivo |
+| `ingestion_timestamp` | TIMESTAMP | Data de ingestão |
+
+**Extração de URLs**: Regex nos campos `body` (Circulars) e `urls` (GW Alerts).
+
+```python
+import re
+# Padrão para URLs de imagens em circulares
+IMAGE_URL_PATTERN = r'https?://[^\s]+\.(fits|png|jpg|jpeg|pdf)(?:\?[^\s]*)?'
+urls = re.findall(IMAGE_URL_PATTERN, circular_body, re.IGNORECASE)
+```
+
+---
+
+### Job de Download Assíncrono
+
+**Arquivo**: `src/image_download_job.py`
+
+**Fluxo**:
+1. Ler `gold_image_catalog` onde `download_status = 'pending'`
+2. Download paralelo com rate limiting
+3. Salvar em Cloud Storage (S3/ADLS/GCS)
+4. Atualizar `downloaded_path` e `download_status`
+
+```python
+import aiohttp
+import asyncio
+
+async def download_image(session, url, dest_path):
+    async with session.get(url) as response:
+        if response.status == 200:
+            with open(dest_path, 'wb') as f:
+                f.write(await response.read())
+            return 'success'
+    return 'failed'
+```
+
+**Considerações**:
+- Rate limiting para não sobrecarregar servidores externos
+- Retry com backoff exponencial
+- Verificação de integridade (checksum)
+
+---
+
+### Tool de Acesso para Agente RAG
+
+**Arquivo**: `src/tools/image_tool.py`
+
+O agente pode acessar imagens on-demand para análise com LLMs multimodais.
+
+```python
+from langchain.tools import tool
+import requests
+from PIL import Image
+from io import BytesIO
+
+@tool
+def fetch_event_image(event_id: str, image_type: str = "skymap") -> Image:
+    """
+    Busca e retorna imagem de um evento GCN.
+    
+    Args:
+        event_id: Identificador do evento (ex: S190425z, GRB 260111A)
+        image_type: Tipo de imagem (skymap, finding_chart, lightcurve)
+    
+    Returns:
+        Imagem PIL para processamento ou exibição
+    """
+    # 1. Consulta tabela gold_image_catalog
+    url = spark.sql(f"""
+        SELECT image_url FROM gold_image_catalog 
+        WHERE event_id = '{event_id}' 
+        AND image_type = '{image_type}'
+        LIMIT 1
+    """).collect()[0][0]
+    
+    # 2. Faz request HTTP
+    response = requests.get(url)
+    
+    # 3. Retorna imagem
+    return Image.open(BytesIO(response.content))
+```
+
+---
+
+### Uso com LLMs Multimodais
+
+Com GPT-4V, Claude 3, ou Gemini Pro Vision, o agente pode analisar imagens:
+
+```python
+from openai import OpenAI
+
+def analyze_finding_chart(image_path: str, event_id: str) -> str:
+    client = OpenAI()
+    
+    with open(image_path, "rb") as f:
+        image_data = base64.b64encode(f.read()).decode()
+    
+    response = client.chat.completions.create(
+        model="gpt-4-vision-preview",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": f"Esta é uma finding chart do evento {event_id}. "
+                                          "Identifique candidatos a contrapartida óptica."},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
+            ]
+        }]
+    )
+    return response.choices[0].message.content
+```
+
+---
+
+### Processamento de Sky Maps (FITS)
+
+Sky maps em formato FITS requerem bibliotecas especializadas:
+
+```python
+import healpy as hp
+from astropy.io import fits
+import numpy as np
+
+def analyze_skymap(fits_path: str):
+    """Extrai estatísticas de um sky map LIGO/Virgo."""
+    # Ler mapa de probabilidade
+    prob, _ = hp.read_map(fits_path, field=0, h=True)
+    
+    # Encontrar região de 90% de confiança
+    sorted_prob = np.sort(prob)[::-1]
+    cumsum = np.cumsum(sorted_prob)
+    idx_90 = np.searchsorted(cumsum, 0.9)
+    
+    # Área em graus quadrados
+    nside = hp.get_nside(prob)
+    pixel_area = hp.nside2pixarea(nside, degrees=True)
+    area_90 = idx_90 * pixel_area
+    
+    return {
+        "area_90_sq_deg": area_90,
+        "max_prob_ra_dec": hp.pix2ang(nside, np.argmax(prob), lonlat=True)
+    }
+```
+
+---
+
+### Priorização de Imagens
+
+| Fase | Objetivo | Esforço |
+|------|----------|---------|
+| **1** | Criar `gold_image_catalog` (apenas metadados) | Baixo |
+| **2** | Extração de URLs de Circulares e GW Alerts | Baixo |
+| **3** | Job de download para Sky Maps (FITS) | Médio |
+| **4** | Tool de acesso on-demand para Agente | Médio |
+| **5** | Integração com LLM multimodal | Alto |
+| **6** | Análise automatizada de Sky Maps | Alto |
+
+---
+
 ## 🧪 Experimentos de NLP/ML
 
 ### 1. Extração de Entidades (NER)
