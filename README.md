@@ -143,6 +143,22 @@ NASA GCN Pipeline - Deploy Script
 🏃 Executando job...
 ```
 
+Após a execução, o Status Report exibe **métricas de linhas processadas**:
+```
+🥉 BRONZE
+  • gcn_raw: 3,385,887 (total) | +726 (última execução)
+
+🥈 SILVER
+  • gcn_classic_text: 15,381 (total) | +4 (última execução)
+  • gcn_heartbeat: 3,334,431 (total) | +713 (última execução)
+  ...
+
+🥇 GOLD
+  • gcn_events_summarized: 125 (total) | +125 (última execução)
+```
+
+> 💡 As métricas são obtidas do [Event Log do DLT](https://docs.databricks.com/en/delta-live-tables/observability.html), consultando `num_output_rows` de cada tabela.
+
 ### Configurações Avançadas
 
 ```bash
