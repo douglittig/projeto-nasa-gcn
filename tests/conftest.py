@@ -1,17 +1,18 @@
 """This file configures pytest."""
 
-import os, sys, pathlib
+import os
+import sys
 from contextlib import contextmanager
 
-
 try:
+    import pytest
     from databricks.connect import DatabricksSession
     from databricks.sdk import WorkspaceClient
     from pyspark.sql import SparkSession
-    import pytest
 except ImportError:
     raise ImportError(
-        "Test dependencies not found.\n\nRun tests using 'uv run pytest'. See http://docs.astral.sh/uv to learn more about uv."
+        "Test dependencies not found.\n\nRun tests using 'uv run pytest'. "
+        "See http://docs.astral.sh/uv to learn more about uv."
     )
 
 

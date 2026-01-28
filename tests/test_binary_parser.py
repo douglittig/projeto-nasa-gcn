@@ -7,15 +7,13 @@ Para rodar:
 """
 
 import struct
-import pytest
 from datetime import datetime
 
 from nasa_gcn.binary_parser import (
-    parse_gcn_binary_packet,
-    tjd_sod_to_datetime,
     centi_to_deg,
     get_packet_type_name,
-    TJD_EPOCH,
+    parse_gcn_binary_packet,
+    tjd_sod_to_datetime,
 )
 
 
@@ -109,7 +107,7 @@ class TestParseGcnBinaryPacket:
         """Cria um pacote de teste de 160 bytes."""
         # Array de 40 inteiros (inicializado com zeros)
         longs = [0] * 40
-        
+
         # Preencher campos conforme especificação
         longs[0] = pkt_type
         longs[1] = pkt_sernum
@@ -124,15 +122,15 @@ class TestParseGcnBinaryPacket:
         longs[18] = trigger_id
         longs[19] = misc
         longs[39] = 10  # newline terminator
-        
+
         # Pack como big-endian
-        return struct.pack('>40i', *longs)
+        return struct.pack(">40i", *longs)
 
     def test_valid_packet(self):
         """Testa parsing de pacote válido."""
         packet = self._create_test_packet()
         result = parse_gcn_binary_packet(packet)
-        
+
         assert result["parse_error"] is None
         assert result["pkt_type"] == 60
         assert result["pkt_type_name"] == "SWIFT_BAT_GRB_ALERT"
@@ -150,7 +148,7 @@ class TestParseGcnBinaryPacket:
             burst_sod=4320000,  # 12:00:00
         )
         result = parse_gcn_binary_packet(packet)
-        
+
         assert result["burst_datetime"] is not None
         dt = datetime.fromisoformat(result["burst_datetime"])
         assert dt.year == 1996
@@ -174,7 +172,7 @@ class TestParseGcnBinaryPacket:
         """Testa Dec negativo (hemisfério sul)."""
         packet = self._create_test_packet(burst_dec=-4500)  # -45.0 deg
         result = parse_gcn_binary_packet(packet)
-        
+
         assert result["burst_dec_deg"] == -45.0
 
     def test_scale_detection_10000(self):
@@ -187,7 +185,7 @@ class TestParseGcnBinaryPacket:
             burst_error=10000,  # 1.0 deg
         )
         result = parse_gcn_binary_packet(packet)
-        
+
         # Deve detectar escala 10000 automaticamente
         assert result["burst_ra_deg"] == 180.0
         assert result["burst_dec_deg"] == 45.0
@@ -197,7 +195,7 @@ class TestParseGcnBinaryPacket:
         """Testa pacote FERMI_GBM_ALERT."""
         packet = self._create_test_packet(pkt_type=110)
         result = parse_gcn_binary_packet(packet)
-        
+
         assert result["pkt_type"] == 110
         assert result["pkt_type_name"] == "FERMI_GBM_ALERT"
 
@@ -205,6 +203,6 @@ class TestParseGcnBinaryPacket:
         """Testa pacote LVC (Gravitational Wave)."""
         packet = self._create_test_packet(pkt_type=150)
         result = parse_gcn_binary_packet(packet)
-        
+
         assert result["pkt_type"] == 150
         assert result["pkt_type_name"] == "LVC_PRELIMINARY"

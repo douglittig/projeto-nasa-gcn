@@ -5,13 +5,14 @@ Credentials are loaded from:
 1. Spark configuration (for Databricks pipelines via bundle variables)
 2. Environment variables (from .env file for local development)
 """
+
 import os
 from pathlib import Path
 
 # Try to load .env file if it exists (for local development)
 try:
     from dotenv import load_dotenv
-    
+
     # Look for .env in the project root
     env_path = Path(__file__).parent.parent.parent / ".env"
     if env_path.exists():
@@ -26,6 +27,7 @@ def _get_credential(name: str) -> str:
     # Try Spark configuration first (for Databricks pipelines)
     try:
         from pyspark.sql import SparkSession
+
         spark = SparkSession.getActiveSession()
         if spark:
             value = spark.conf.get(name, "")
@@ -33,7 +35,7 @@ def _get_credential(name: str) -> str:
                 return value
     except Exception:
         pass
-    
+
     # Fall back to environment variable
     return os.getenv(name, "")
 
@@ -78,14 +80,15 @@ def get_kafka_options() -> dict:
     # Get credentials at runtime (allows Spark config to be available)
     client_id = _get_credential("GCN_CLIENT_ID")
     client_secret = _get_credential("GCN_CLIENT_SECRET")
-    
+
     if not client_id or not client_secret:
         import warnings
+
         warnings.warn(
             "GCN credentials not found. "
             "Set GCN_CLIENT_ID and GCN_CLIENT_SECRET in .env file or pipeline configuration."
         )
-    
+
     options = {
         "kafka.bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
         "kafka.security.protocol": KAFKA_SECURITY_PROTOCOL,
@@ -98,11 +101,11 @@ def get_kafka_options() -> dict:
         "failOnDataLoss": "false",
         "startingOffsets": "earliest",
     }
-    
+
     # Use subscribePattern for flexible matching
     if GCN_INCLUDE_HEARTBEAT:
         options["subscribePattern"] = f"gcn\\.heartbeat|{GCN_COMBINED_PATTERN}"
     else:
         options["subscribePattern"] = GCN_COMBINED_PATTERN
-    
+
     return options

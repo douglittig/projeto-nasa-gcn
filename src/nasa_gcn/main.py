@@ -8,7 +8,6 @@ de linhas processadas na última execução do DLT.
 
 from databricks.sdk.runtime import spark
 
-
 # Configurações do pipeline
 CATALOG = "sandbox"
 SCHEMA = "nasa_gcn_dev"
@@ -18,7 +17,7 @@ TABLE_LAYERS = {
     "🥉 BRONZE": ["gcn_raw"],
     "🥈 SILVER": [
         "gcn_classic_text",
-        "gcn_classic_voevent", 
+        "gcn_classic_voevent",
         "gcn_classic_binary",
         "gcn_notices",
         "gcn_circulars",
@@ -35,11 +34,11 @@ def get_pipeline_id():
     Procura por pipelines que escrevem no schema configurado.
     """
     from databricks.sdk import WorkspaceClient
-    
+
     try:
         w = WorkspaceClient()
         pipelines = list(w.pipelines.list_pipelines())
-        
+
         for pipeline in pipelines:
             # Procura pelo pipeline que usa nosso schema (considera prefixo [dev ...])
             # Ex: "[dev dltreinamentos_data] nasa_gcn_pipeline" ou "nasa_gcn_pipeline"
@@ -54,21 +53,22 @@ def get_pipeline_id():
 def get_dlt_metrics(pipeline_id: str) -> dict:
     """
     Consulta o event_log do DLT para obter métricas da última execução.
-    
+
     Retorna um dicionário com o número de linhas processadas por tabela:
     {"table_name": num_output_rows, ...}
-    
+
     Nota: Tabelas streaming (Bronze/Silver) podem não reportar num_output_rows
     da mesma forma que tabelas batch (Gold).
     """
     if not pipeline_id:
         return {}
-    
+
     try:
         # Query para obter métricas de flow_progress da última execução
         # O event_log() é uma table-valued function do Unity Catalog
-        # 
-        # Status possíveis: QUEUED, STARTING, RUNNING, COMPLETED, FAILED, SKIPPED, STOPPED, IDLE, EXCLUDED
+        #
+        # Status possíveis: QUEUED, STARTING, RUNNING, COMPLETED, FAILED,
+        #                   SKIPPED, STOPPED, IDLE, EXCLUDED
         # - Tabelas batch (dlt.read) geralmente reportam COMPLETED
         # - Tabelas streaming (dlt.read_stream) podem reportar IDLE ou RUNNING
         query = f"""
@@ -83,7 +83,7 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
         flow_metrics AS (
             -- Extrai métricas de cada flow (tabela) do último update
             -- Não filtra por status específico para capturar streaming e batch
-            SELECT 
+            SELECT
                 origin.flow_name AS table_name,
                 details:flow_progress:status::STRING AS flow_status,
                 details:flow_progress:metrics:num_output_rows::LONG AS rows_processed
@@ -96,9 +96,9 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
         FROM flow_metrics
         GROUP BY table_name, flow_status
         """
-        
+
         result = spark.sql(query).collect()
-        
+
         # Normaliza nomes: flow_name vem como "catalog.schema.table", queremos só "table"
         metrics = {}
         for row in result:
@@ -110,9 +110,9 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
                 metrics[table_basename] += row.rows_processed
             else:
                 metrics[table_basename] = row.rows_processed
-        
+
         return metrics
-    
+
     except Exception as e:
         print(f"⚠️  Não foi possível obter métricas DLT: {e}")
         return {}
@@ -121,7 +121,7 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
 def get_pipeline_stats():
     """Retorna estatísticas das tabelas do pipeline GCN (contagem total)."""
     stats = {}
-    
+
     for layer_name, tables in TABLE_LAYERS.items():
         stats[layer_name] = {}
         for table_name in tables:
@@ -131,7 +131,7 @@ def get_pipeline_stats():
                 stats[layer_name][table_name] = count
             except Exception as e:
                 stats[layer_name][table_name] = f"Error: {e}"
-    
+
     return stats
 
 
@@ -147,33 +147,35 @@ def main():
     print("=" * 60)
     print("NASA GCN Pipeline - Status Report")
     print("=" * 60)
-    
+
     # Obtém contagens totais das tabelas
     stats = get_pipeline_stats()
-    
+
     # Obtém métricas DLT da última execução
     pipeline_id = get_pipeline_id()
     dlt_metrics = get_dlt_metrics(pipeline_id) if pipeline_id else {}
-    
+
     if dlt_metrics:
-        print(f"\n📊 Métricas da última execução do pipeline")
+        print("\n📊 Métricas da última execução do pipeline")
         print("-" * 40)
-    
+
     for layer, tables in stats.items():
         print(f"\n{layer}")
         print("-" * 40)
-        
+
         for table_name, total_count in tables.items():
             total_str = format_number(total_count)
-            
+
             # Verifica se temos métricas DLT para esta tabela
             rows_processed = dlt_metrics.get(table_name)
-            
+
             if rows_processed is not None and rows_processed > 0:
-                print(f"  • {table_name}: {total_str} (total) | +{rows_processed:,} (última execução)")
+                print(
+                    f"  • {table_name}: {total_str} (total) | +{rows_processed:,} (última execução)"
+                )
             else:
                 print(f"  • {table_name}: {total_str}")
-    
+
     print("\n" + "=" * 60)
     print("Pipeline executado com sucesso!")
     print("=" * 60)
