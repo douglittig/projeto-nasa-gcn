@@ -52,8 +52,8 @@ resources:
       # O notebook pipeline.ipynb contém as definições de tabelas usando
       # o decorador @dlt.table
       libraries:
-        - notebook:
-            path: ../src/pipeline.ipynb
+        - file:
+            path: ../src/nasa_gcn/dlt_pipeline.py
 
       # ------------------------------------------------------------------------
       # CONFIGURATION: Variáveis passadas para o pipeline
