@@ -2,95 +2,31 @@
 NASA GCN Data Pipeline (Delta Live Tables)
 """
 
-import os
-import struct
-from typing import Any, Dict
-
 import dlt
 from pyspark.sql.functions import (
-    Column,
     coalesce,
     col,
     collect_list,
     concat_ws,
     count,
     current_timestamp,
-    decode,
     expr,
     from_json,
     get_json_object,
     lit,
     max,
     regexp_extract,
-    regexp_replace,
     udf,
 )
 
+# Import modularized logic
+from nasa_gcn.binary_parser import PARSED_BINARY_SCHEMA, parse_gcn_binary_packet
+from nasa_gcn.config import get_kafka_options
+from nasa_gcn.schemas import CIRCULAR_SCHEMA
+from nasa_gcn.utils import clean_json_id, decode_utf8
 
-def decode_utf8(col_name: str = "value") -> Column:
-    return decode(col(col_name), "UTF-8")
-
-
-def clean_json_id(id_col: Column) -> Column:
-    step1 = regexp_replace(id_col, r'^[\["]+', "")
-    return regexp_replace(step1, r'[\]"]+$', "")
-
-
-CIRCULAR_SCHEMA = (
-    "circularId INT, eventId STRING, subject STRING, body STRING, submitter STRING, "
-    "submittedHow STRING, createdOn LONG, format STRING"
-)
-
-
-def _get_credential(name: str) -> str:
-    try:
-        if spark:  # type: ignore
-            val = spark.conf.get(name, "")
-            if val:
-                return val
-    except:
-        pass
-    return os.getenv(name, "")
-
-
-def get_kafka_options() -> dict:
-    cid = _get_credential("GCN_CLIENT_ID")
-    sec = _get_credential("GCN_CLIENT_SECRET")
-    jaas = (
-        f"kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required "
-        f'clientId="{cid}" clientSecret="{sec}";'
-    )
-    return {
-        "kafka.bootstrap.servers": "kafka.gcn.nasa.gov:9092",
-        "kafka.security.protocol": "SASL_SSL",
-        "kafka.sasl.mechanism": "OAUTHBEARER",
-        "kafka.sasl.jaas.config": jaas,
-        "kafka.sasl.login.callback.handler.class": "kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler",
-        "kafka.sasl.oauthbearer.token.endpoint.url": "https://auth.gcn.nasa.gov/oauth2/token",
-        "failOnDataLoss": "false",
-        "startingOffsets": "earliest",
-        "subscribePattern": "gcn\\.heartbeat|gcn\\.classic\\.text\\..*|gcn\\.classic\\.voevent\\..*|gcn\\.classic\\.binary\\..*|gcn\\.notices\\..*|gcn\\.circulars|igwn\\.gwalert",
-    }
-
-
-def parse_gcn_binary_packet(data: bytes) -> Dict[str, Any]:
-    if data is None or len(data) != 160:
-        return {"parse_error": "size"}
-    try:
-        l = struct.unpack(">40i", data)
-        return {
-            "pkt_type": l[0],
-            "trig_num": l[4] if l[4] > 0 else None,
-            "ra": l[7] / 100.0,
-            "dec": l[8] / 100.0,
-        }
-    except Exception as e:
-        return {"parse_error": str(e)}
-
-
-parse_binary_udf = udf(
-    parse_gcn_binary_packet, "pkt_type INT, trig_num INT, ra DOUBLE, dec DOUBLE, parse_error STRING"
-)
+# Register binary parser UDF
+parse_binary_udf = udf(parse_gcn_binary_packet, PARSED_BINARY_SCHEMA)
 
 
 @dlt.table(name="gcn_raw")
@@ -121,7 +57,7 @@ def gcn_classic_text():
             "message_key",
             col("text").alias("message_text"),
             "topic",
-            regexp_extract(col("text"), r"TITLE:\s+(.*?)(?=\n)", 1).alias("title"),
+            regexp_extract(col("text"), r"TITLE:\s+(.*?)(?=\\n)", 1).alias("title"),
             col("text").alias("document_text"),
             "kafka_timestamp",
             current_timestamp().alias("silver_ts"),
@@ -243,7 +179,7 @@ def gcn_events_summarized():
         )
         .filter(col("event_id").isNotNull())
     )
-    return agg_circs.join(gws.withColumnRenamed("event_id", "event_id"), "event_id", "left").select(
+    return agg_circs.join(gws, "event_id", "left").select(
         "event_id",
         "circular_count",
         "last_date",

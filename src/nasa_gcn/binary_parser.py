@@ -208,9 +208,9 @@ def get_packet_type_name(pkt_type: int) -> str:
         pkt_type: Número do tipo de pacote (0-255)
 
     Returns:
-        Nome do tipo de pacote ou "UNKNOWN_{num}" se não mapeado
+        Nome do tipo de pacote ou "UNKNOWN_TYPE_{num}" se não mapeado
     """
-    return PACKET_TYPE_NAMES.get(pkt_type, f"UNKNOWN_{pkt_type}")
+    return PACKET_TYPE_NAMES.get(pkt_type, f"UNKNOWN_TYPE_{pkt_type}")
 
 
 def tjd_sod_to_datetime(tjd: int, sod_centi: int) -> Optional[datetime]:
