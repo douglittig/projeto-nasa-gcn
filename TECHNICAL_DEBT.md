@@ -4,7 +4,6 @@
 
 | ID | Item | Criticality | Complexity | Impact |
 |:--:|:-----|:-----------:|:----------:|:-------|
-| **1** | **DLT Pipeline Refactoring (DRY & Data Integrity)** | 🔴 **High** | 🟡 **Medium** | **Critical Data Loss**. Pipeline uses inferior, duplicated code instead of tested modules. |
 | **2** | **Dynamic Configuration in `main.py`** | 🟠 **Medium** | 🟢 **Low** | Deployment risk. Hardcoded environment values. |
 | **3** | **CI/CD Implementation** | 🟠 **Medium** | 🟡 **Medium** | Manual process prone to human error. |
 | **4** | **Production Vector Store Integration** | 🟠 **Medium** | 🔴 **High** | Scalability bottleneck for RAG features. |
@@ -15,14 +14,6 @@
 ---
 
 ## Remaining Items
-
-### 1. DLT Pipeline Refactoring (DRY & Data Integrity)
-- **Issue**: `src/nasa_gcn/dlt_pipeline.py` violates DRY by duplicating logic from `utils.py`, `schemas.py`, and `config.py`. Worse, it re-implements a simplified version of the binary parser, ignoring `binary_parser.py`.
-- **Impact**:
-    - **Data Loss**: Production pipeline extracts significantly fewer fields from binary packets than the available parser.
-    - **False Security**: Tests pass for `binary_parser.py`, but that code isn't running in the pipeline.
-    - **Maintenance Nightmare**: Fixes in utility modules don't propagate to the pipeline.
-- **Solution**: Refactor `dlt_pipeline.py` to import and use the established modules (`binary_parser`, `utils`, `schemas`, `config`) instead of redefining them.
 
 ### 2. Dynamic Configuration in `main.py`
 - **Issue**: `src/nasa_gcn/main.py` has hardcoded values for `CATALOG` ("sandbox") and `SCHEMA` ("nasa_gcn_dev").
@@ -51,6 +42,10 @@
 ---
 
 ## Resolved Items (✅ Completed)
+
+### DLT Pipeline Refactoring (DRY & Data Integrity)
+- **Action**: Refactored `src/nasa_gcn/dlt_pipeline.py` to import and use modularized logic from `binary_parser.py`, `utils.py`, `schemas.py`, and `config.py`. Eliminated code duplication and ensured the production pipeline uses the full binary parser.
+- **Status**: Implemented.
 
 ### Convert DLT Pipeline to Python File
 - **Action**: Converted `src/pipeline.ipynb` to `src/nasa_gcn/dlt_pipeline.py`. Updated `resources/nasa_gcn.pipeline.yml` to point to the new Python file. Used `ruff` to ensure code quality.
