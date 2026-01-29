@@ -2,6 +2,12 @@
 NASA GCN Data Pipeline (Delta Live Tables)
 """
 
+import os
+import sys
+import struct
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+
 import dlt
 from pyspark.sql.functions import (
     coalesce,
@@ -19,15 +25,169 @@ from pyspark.sql.functions import (
     udf,
 )
 
-# Import modularized logic
-from nasa_gcn.binary_parser import PARSED_BINARY_SCHEMA, parse_gcn_binary_packet
-from nasa_gcn.config import get_kafka_options
-from nasa_gcn.schemas import CIRCULAR_SCHEMA
-from nasa_gcn.utils import clean_json_id, decode_utf8
+# ==============================================================================
+# DRIVER SETUP: Allow importing sibling modules (config, utils, schemas)
+# ==============================================================================
+try:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.append(current_dir)
+except Exception:
+    pass
+
+# Import modules used ONLY on the Driver (pipeline definition time)
+try:
+    from config import get_kafka_options
+    from schemas import CIRCULAR_SCHEMA
+    from utils import clean_json_id, decode_utf8
+except ImportError:
+    # Fallback for package structure
+    from nasa_gcn.config import get_kafka_options
+    from nasa_gcn.schemas import CIRCULAR_SCHEMA
+    from nasa_gcn.utils import clean_json_id, decode_utf8
+
+
+# ==============================================================================
+# BINARY PARSER LOGIC (Embedded for UDF compatibility in DLT)
+# ==============================================================================
+# NOTE: This code is duplicated from binary_parser.py to resolve
+# ModuleNotFoundError on Spark Executors in DLT environment.
+
+PACKET_TYPE_NAMES: Dict[int, str] = {
+    1: "BATSE_ORIGINAL", 2: "TEST", 3: "IMALIVE", 4: "KILL",
+    11: "BATSE_MAXBC", 21: "BRADFORD_TEST", 22: "BATSE_FINAL", 24: "BATSE_LOCBURST",
+    25: "ALEXIS", 26: "RXTE_PCA_ALERT", 27: "RXTE_PCA", 28: "RXTE_ASM_ALERT",
+    29: "RXTE_ASM", 30: "COMPTEL", 31: "IPN_RAW", 32: "IPN_SEGMENT",
+    33: "SAX_WFC_ALERT", 34: "SAX_WFC", 35: "SAX_NFI_ALERT", 36: "SAX_NFI",
+    37: "RXTE_ASM_XTRANS", 38: "SPARE_TESTING", 39: "IPN_POSITION",
+    40: "HETE_S/C_ALERT", 41: "HETE_S/C_UPDATE", 42: "HETE_S/C_LAST", 43: "HETE_GNDANA",
+    44: "HETE_TEST", 45: "GRB_COUNTERPART", 46: "SWIFT_TOO_FOM_OBSERVE", 47: "SWIFT_TOO_SC_SLEW",
+    48: "DOW_TOD_TEST", 51: "INTEGRAL_POINTDIR", 52: "INTEGRAL_SPIACS", 53: "INTEGRAL_WAKEUP",
+    54: "INTEGRAL_REFINED", 55: "INTEGRAL_OFFLINE", 56: "INTEGRAL_WEAK", 57: "AAVSO",
+    58: "MILAGRO", 59: "KONUS_LIGHTCURVE", 60: "SWIFT_BAT_GRB_ALERT", 61: "SWIFT_BAT_GRB_POSITION",
+    62: "SWIFT_BAT_GRB_NACK", 63: "SWIFT_BAT_GRB_LC", 64: "SWIFT_BAT_SCALED_MAP",
+    65: "SWIFT_FOM_OBSERVE", 66: "SWIFT_SC_SLEW", 67: "SWIFT_XRT_POSITION", 68: "SWIFT_XRT_SPECTRUM",
+    69: "SWIFT_XRT_IMAGE", 70: "SWIFT_XRT_LIGHTCURVE", 71: "SWIFT_XRT_NACK_POSITION",
+    72: "SWIFT_UVOT_IMAGE", 73: "SWIFT_UVOT_SRC_LIST", 76: "SWIFT_BAT_GRB_PROC_LC",
+    77: "SWIFT_XRT_PROC_SPECTRUM", 78: "SWIFT_XRT_PROC_IMAGE", 79: "SWIFT_UVOT_PROC_IMAGE",
+    80: "SWIFT_UVOT_PROC_SRC_LIST", 81: "SWIFT_UVOT_POSITION", 82: "SWIFT_BAT_GRB_POS_TEST",
+    83: "SWIFT_POINTDIR", 84: "SWIFT_BAT_TRANS", 85: "SWIFT_XRT_THRESHPIX",
+    86: "SWIFT_XRT_THRESHPIX_PROC", 87: "SWIFT_XRT_SPER", 88: "SWIFT_XRT_SPER_PROC",
+    89: "SWIFT_UVOT_NACK_POSITION", 97: "SWIFT_BAT_QUICKLOOK_POSITION",
+    98: "SWIFT_BAT_SUBTHRESHOLD_POSITION", 99: "SWIFT_BAT_SLEW_GRB_POSITION",
+    103: "SWIFT_ACTUAL_POINTDIR", 133: "SWIFT_BAT_MONITOR", 140: "SWIFT_BAT_SUB_SUB_THRESH_POS",
+    141: "SWIFT_BAT_KNOWN_SRC_POS", 100: "SUPERAGILE_GRB_WAKEUP", 101: "SUPERAGILE_GRB_GROUND",
+    102: "SUPERAGILE_GRB_REFINED", 105: "AGILE_MCAL_ALERT", 107: "AGILE_POINTDIR",
+    109: "SUPERAGILE_GRB_POS_TEST", 110: "FERMI_GBM_ALERT", 111: "FERMI_GBM_FLT_POS",
+    112: "FERMI_GBM_GND_POS", 114: "FERMI_GBM_GND_INTERNAL", 115: "FERMI_GBM_FINAL_POS",
+    116: "FERMI_GBM_ALERT_INTERNAL", 117: "FERMI_GBM_FLT_INTERNAL", 119: "FERMI_GBM_POS_TEST",
+    131: "FERMI_GBM_SUBTHRESHOLD", 120: "FERMI_LAT_GRB_POS_INI", 121: "FERMI_LAT_GRB_POS_UPD",
+    122: "FERMI_LAT_GRB_POS_DIAG", 123: "FERMI_LAT_TRANS", 124: "FERMI_LAT_GRB_POS_TEST",
+    125: "FERMI_LAT_MONITOR", 126: "FERMI_SC_SLEW", 127: "FERMI_LAT_GND", 128: "FERMI_LAT_OFFLINE",
+    129: "FERMI_POINTDIR", 144: "FERMI_SC_SLEW_INTERNAL", 146: "FERMI_GBM_FIN_POS_INTERNAL",
+    130: "SIMBAD_NED_SEARCH_RESULTS", 134: "MAXI_UNKNOWN_SOURCE", 135: "MAXI_KNOWN_SOURCE",
+    136: "MAXI_TEST", 137: "OGLE", 139: "MOA", 145: "COINCIDENCE", 148: "SUZAKU_LIGHTCURVE",
+    149: "SNEWS", 150: "LVC_PRELIMINARY", 151: "LVC_INITIAL", 152: "LVC_UPDATE", 153: "LVC_TEST",
+    154: "LVC_COUNTERPART", 163: "LVC_EARLY_WARNING", 164: "LVC_RETRACTION",
+    157: "AMON_ICECUBE_COINC", 158: "AMON_ICECUBE_HESE", 159: "AMON_ICECUBE_TEST",
+    160: "CALET_GBM_FLT_LC", 161: "CALET_GBM_GND_LC", 166: "AMON_ICECUBE_CLUSTER",
+    168: "GWHEN_COINC", 169: "AMON_ICECUBE_EHE", 170: "AMON_ANTARES_FERMILAT_COINC",
+    171: "HAWC_BURST_MONITOR", 172: "AMON_NU_EM_COINC", 173: "ICECUBE_ASTROTRACK_GOLD",
+    174: "ICECUBE_ASTROTRACK_BRONZE", 175: "SK_SUPERNOVA", 176: "AMON_ICECUBE_CASCADE",
+    188: "GECAM_FLT", 189: "GECAM_GND",
+}
+
+TJD_EPOCH = datetime(1968, 5, 24, 0, 0, 0)
+
+def get_packet_type_name(pkt_type: int) -> str:
+    return PACKET_TYPE_NAMES.get(pkt_type, f"UNKNOWN_TYPE_{pkt_type}")
+
+def tjd_sod_to_datetime(tjd: int, sod_centi: int) -> Optional[datetime]:
+    if tjd <= 0 or sod_centi < 0:
+        return None
+    try:
+        sod_seconds = sod_centi / 100.0
+        return TJD_EPOCH + timedelta(days=tjd, seconds=sod_seconds)
+    except (ValueError, OverflowError):
+        return None
+
+def centi_to_deg(value: int, scale: int = 100) -> float:
+    return value / scale
+
+def parse_gcn_binary_packet(binary_data: bytes) -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "pkt_type": None, "pkt_type_name": None, "pkt_sernum": None, "trig_num": None,
+        "burst_tjd": None, "burst_sod_centi": None, "burst_datetime": None,
+        "burst_ra_deg": None, "burst_dec_deg": None, "burst_error_deg": None,
+        "trigger_id": None, "misc": None, "parse_error": None,
+    }
+    if binary_data is None:
+        result["parse_error"] = "binary_data is None"
+        return result
+    if len(binary_data) != 160:
+        result["parse_error"] = f"Invalid packet size: {len(binary_data)} bytes (expected 160)"
+        return result
+    try:
+        longs = struct.unpack(">40i", binary_data)
+        pkt_type = longs[0]
+        result["pkt_type"] = pkt_type
+        result["pkt_type_name"] = get_packet_type_name(pkt_type)
+        result["pkt_sernum"] = longs[1]
+        trig_num = longs[4]
+        result["trig_num"] = trig_num if trig_num > 0 else None
+        burst_tjd = longs[5]
+        burst_sod = longs[6]
+        result["burst_tjd"] = burst_tjd
+        result["burst_sod_centi"] = burst_sod
+        if burst_tjd > 0 and burst_sod >= 0:
+            burst_dt = tjd_sod_to_datetime(burst_tjd, burst_sod)
+            if burst_dt:
+                result["burst_datetime"] = burst_dt.isoformat()
+        burst_ra = longs[7]
+        burst_dec = longs[8]
+        burst_error = longs[11]
+        if burst_ra > 36000 or burst_ra < 0 or abs(burst_dec) > 9000:
+            scale = 10000
+        else:
+            scale = 100
+        ra_deg = centi_to_deg(burst_ra, scale)
+        dec_deg = centi_to_deg(burst_dec, scale)
+        err_deg = centi_to_deg(abs(burst_error), scale)
+        if 0 <= ra_deg < 360:
+            result["burst_ra_deg"] = ra_deg
+        if -90 <= dec_deg <= 90:
+            result["burst_dec_deg"] = dec_deg
+        result["burst_error_deg"] = err_deg
+        result["trigger_id"] = longs[18]
+        result["misc"] = longs[19]
+    except struct.error as e:
+        result["parse_error"] = f"Struct unpack error: {e}"
+    except Exception as e:
+        result["parse_error"] = f"Unexpected error: {e}"
+    return result
+
+PARSED_BINARY_SCHEMA = """
+    pkt_type INT,
+    pkt_type_name STRING,
+    pkt_sernum INT,
+    trig_num INT,
+    burst_tjd INT,
+    burst_sod_centi INT,
+    burst_datetime STRING,
+    burst_ra_deg DOUBLE,
+    burst_dec_deg DOUBLE,
+    burst_error_deg DOUBLE,
+    trigger_id INT,
+    misc INT,
+    parse_error STRING
+"""
+
+# ==============================================================================
+# DLT TABLES DEFINITION
+# ==============================================================================
 
 # Register binary parser UDF
 parse_binary_udf = udf(parse_gcn_binary_packet, PARSED_BINARY_SCHEMA)
-
 
 @dlt.table(name="gcn_raw")
 def gcn_raw():
@@ -46,7 +206,6 @@ def gcn_raw():
         )
     )
 
-
 @dlt.table(name="gcn_classic_text")
 def gcn_classic_text():
     return (
@@ -63,7 +222,6 @@ def gcn_classic_text():
             current_timestamp().alias("silver_ts"),
         )
     )
-
 
 @dlt.table(name="gcn_classic_voevent")
 def gcn_classic_voevent():
@@ -84,7 +242,6 @@ def gcn_classic_voevent():
         )
     )
 
-
 @dlt.table(name="gcn_classic_binary")
 def gcn_classic_binary():
     return (
@@ -95,7 +252,6 @@ def gcn_classic_binary():
             "message_key", "p.*", "topic", "kafka_timestamp", current_timestamp().alias("silver_ts")
         )
     )
-
 
 @dlt.table(name="gcn_notices")
 def gcn_notices():
@@ -114,7 +270,6 @@ def gcn_notices():
             current_timestamp().alias("silver_ts"),
         )
     )
-
 
 @dlt.table(name="gcn_circulars")
 def gcn_circulars():
@@ -139,7 +294,6 @@ def gcn_circulars():
         )
     )
 
-
 @dlt.table(name="igwn_gwalert")
 def igwn_gwalert():
     return (
@@ -156,7 +310,6 @@ def igwn_gwalert():
         )
     )
 
-
 @dlt.table(name="gcn_heartbeat")
 def gcn_heartbeat():
     return (
@@ -164,7 +317,6 @@ def gcn_heartbeat():
         .filter(col("topic") == "gcn.heartbeat")
         .select("message_key", decode_utf8().alias("heartbeat_json"), "topic", "kafka_timestamp")
     )
-
 
 @dlt.table(name="gcn_events_summarized")
 def gcn_events_summarized():
