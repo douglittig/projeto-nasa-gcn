@@ -8,6 +8,11 @@ de linhas processadas na última execução do DLT.
 
 from databricks.sdk.runtime import spark
 
+from nasa_gcn.utils import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
+
 # Configurações do pipeline
 CATALOG = "sandbox"
 SCHEMA = "nasa_gcn_dev"
@@ -46,7 +51,7 @@ def get_pipeline_id():
                 return pipeline.pipeline_id
         return None
     except Exception as e:
-        print(f"⚠️  Erro ao obter Pipeline ID: {e}")
+        logger.error(f"Erro ao obter Pipeline ID: {e}")
         return None
 
 
@@ -114,7 +119,7 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
         return metrics
 
     except Exception as e:
-        print(f"⚠️  Não foi possível obter métricas DLT: {e}")
+        logger.warning(f"Não foi possível obter métricas DLT: {e}")
         return {}
 
 
