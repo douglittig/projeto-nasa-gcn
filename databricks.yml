@@ -73,6 +73,12 @@ variables:
     description: "NASA GCN OAuth Client ID - Obtido em https://gcn.nasa.gov/quickstart"
   gcn_client_secret:
     description: "NASA GCN OAuth Client Secret - Mantido em segredo, nunca versionar!"
+  catalog:
+    description: "Unity Catalog name for tables"
+    default: "sandbox"
+  schema:
+    description: "Schema name for tables"
+    default: "nasa_gcn_${bundle.target}"
 
 # ------------------------------------------------------------------------------
 # TARGETS: Ambientes de deployment (dev, staging, prod)

@@ -6,16 +6,14 @@ Executa validações e exibe estatísticas do pipeline, incluindo métricas
 de linhas processadas na última execução do DLT.
 """
 
+import argparse
+
 from databricks.sdk.runtime import spark
 
 from nasa_gcn.utils import get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
-
-# Configurações do pipeline
-CATALOG = "sandbox"
-SCHEMA = "nasa_gcn_dev"
 
 # Mapeamento de tabelas por camada (Medallion Architecture)
 TABLE_LAYERS = {
@@ -123,14 +121,14 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
         return {}
 
 
-def get_pipeline_stats():
+def get_pipeline_stats(catalog: str, schema: str):
     """Retorna estatísticas das tabelas do pipeline GCN (contagem total)."""
     stats = {}
 
     for layer_name, tables in TABLE_LAYERS.items():
         stats[layer_name] = {}
         for table_name in tables:
-            full_name = f"{CATALOG}.{SCHEMA}.{table_name}"
+            full_name = f"{catalog}.{schema}.{table_name}"
             try:
                 count = spark.table(full_name).count()
                 stats[layer_name][table_name] = count
@@ -147,14 +145,25 @@ def format_number(value) -> str:
     return str(value)
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="NASA GCN Pipeline Job")
+    parser.add_argument("--catalog", type=str, default="sandbox", help="Unity Catalog name")
+    parser.add_argument("--schema", type=str, default="nasa_gcn_dev", help="Schema name")
+    return parser.parse_args()
+
+
 def main():
     """Função principal executada pelo Databricks Job."""
+    args = parse_args()
+
     print("=" * 60)
     print("NASA GCN Pipeline - Status Report")
+    print(f"Catalog: {args.catalog} | Schema: {args.schema}")
     print("=" * 60)
 
     # Obtém contagens totais das tabelas
-    stats = get_pipeline_stats()
+    stats = get_pipeline_stats(args.catalog, args.schema)
 
     # Obtém métricas DLT da última execução
     pipeline_id = get_pipeline_id()

@@ -4,7 +4,6 @@
 
 | ID | Item | Criticality | Complexity | Impact |
 |:--:|:-----|:-----------:|:----------:|:-------|
-| **2** | **Dynamic Configuration in `main.py`** | 🟠 **Medium** | 🟢 **Low** | Deployment risk. Hardcoded environment values. |
 | **3** | **CI/CD Implementation** | 🟠 **Medium** | 🟡 **Medium** | Manual process prone to human error. |
 | **4** | **Production Vector Store Integration** | 🟠 **Medium** | 🔴 **High** | Scalability bottleneck for RAG features. |
 | **6** | **Documentation Auto-generation** | 🟡 **Low** | 🟡 **Medium** | Maintenance overhead. |
@@ -13,10 +12,6 @@
 ---
 
 ## Remaining Items
-
-### 2. Dynamic Configuration in `main.py`
-- **Issue**: `src/nasa_gcn/main.py` has hardcoded values for `CATALOG` ("sandbox") and `SCHEMA` ("nasa_gcn_dev").
-- **Solution**: Update `main.py` to accept arguments or environment variables. Update `databricks.yml` to pass these dynamically.
 
 ### 3. CI/CD Implementation
 - **Issue**: Deployment is manual via local scripts (`deploy.sh`).
@@ -37,6 +32,10 @@
 ---
 
 ## Resolved Items (✅ Completed)
+
+### Dynamic Configuration in `main.py`
+- **Action**: Updated `databricks.yml` to define `catalog` and `schema` variables. Configured `nasa_gcn.job.yml` and `nasa_gcn.pipeline.yml` to use these variables. Refactored `src/nasa_gcn/main.py` to accept `--catalog` and `--schema` via command line arguments using `argparse`.
+- **Status**: Implemented.
 
 ### Observability & Logging
 - **Action**: Implemented a central logging utility in `src/nasa_gcn/utils.py`. Replaced `print()` and `warnings.warn()` with structured logging (`logger.error`, `logger.warning`, `logger.info`) in `main.py` and `config.py`.
