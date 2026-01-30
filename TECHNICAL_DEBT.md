@@ -27,6 +27,10 @@
 - **Issue**: Current RAG uses a basic Delta Table (`gcn_embeddings`) and a prototype script.
 - **Solution**: Migrate to **Databricks Vector Search** for managed indexing and low-latency retrieval.
 
+### 5. Observability & Logging
+- **Issue**: Code relies on `print()` and `warnings.warn()`.
+- **Solution**: Implement the standard Python `logging` library with structured formatting to integrate with Databricks monitoring.
+
 ### 6. Documentation Auto-generation
 - **Issue**: Docs are manually written in `docs/*.md`.
 - **Solution**: Explore tools to auto-generate schema documentation from the Delta Live Tables metadata.
@@ -38,10 +42,6 @@
 ---
 
 ## Resolved Items (✅ Completed)
-
-### Observability & Logging
-- **Action**: Implemented a central logging utility in `src/nasa_gcn/utils.py`. Replaced `print()` and `warnings.warn()` with structured logging (`logger.error`, `logger.warning`, `logger.info`) in `main.py` and `config.py`.
-- **Status**: Implemented.
 
 ### DLT Pipeline Refactoring (DRY & Data Integrity)
 - **Action**: Refactored `src/nasa_gcn/dlt_pipeline.py` to import and use modularized logic from `binary_parser.py`, `utils.py`, `schemas.py`, and `config.py`. Eliminated code duplication and ensured the production pipeline uses the full binary parser.
@@ -70,3 +70,7 @@
 ### Advanced Enrichment (Gold Layer)
 - **Action**: Created `gcn_events_summarized` table joining Notices and Circulars.
 - **Status**: Implemented.
+
+### Observability & Logging
+- **Action**: Implemented the standard Python `logging` library with structured formatting to integrate with Databricks monitoring.
+- **Status**: Implemented.  
