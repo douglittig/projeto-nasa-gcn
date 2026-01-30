@@ -9,6 +9,15 @@ Credentials are loaded from:
 import os
 from pathlib import Path
 
+# Import logger with fallback for different environments
+try:
+    from utils import get_logger
+except ImportError:
+    from nasa_gcn.utils import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
+
 # Try to load .env file if it exists (for local development)
 try:
     from dotenv import load_dotenv
@@ -82,9 +91,7 @@ def get_kafka_options() -> dict:
     client_secret = _get_credential("GCN_CLIENT_SECRET")
 
     if not client_id or not client_secret:
-        import warnings
-
-        warnings.warn(
+        logger.warning(
             "GCN credentials not found. "
             "Set GCN_CLIENT_ID and GCN_CLIENT_SECRET in .env file or pipeline configuration."
         )
