@@ -35,8 +35,8 @@ resources:
       # O schema usa ${bundle.target} para ter schemas separados por ambiente:
       #   - dev: sandbox.nasa_gcn_dev
       #   - prod: sandbox.nasa_gcn_prod
-      catalog: sandbox
-      schema: nasa_gcn_${bundle.target}
+      catalog: ${var.catalog}
+      schema: ${var.schema}
 
       # ------------------------------------------------------------------------
       # SERVERLESS: Modo de execução

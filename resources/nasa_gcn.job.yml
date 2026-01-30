@@ -90,6 +90,11 @@ resources:
           python_wheel_task:
             package_name: nasa_gcn # Nome do pacote Python
             entry_point: main # Função/script a executar
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--schema"
+              - "${var.schema}"
 
       # ------------------------------------------------------------------------
       # ENVIRONMENTS: Ambientes de execução para as tasks
