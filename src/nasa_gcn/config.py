@@ -4,8 +4,15 @@ NASA GCN Kafka Configuration
 Credentials are loaded from:
 1. Spark configuration (for Databricks pipelines via bundle variables)
 2. Environment variables (from .env file for local development)
+
+Security Note:
+- Credentials can be stored as Base64-encoded values (obfuscation, not encryption)
+- Use variables with _B64 suffix (e.g., GCN_CLIENT_ID_B64)
+- This provides basic protection against accidental exposure in logs
+- For production environments, use Databricks Secrets (requires paid workspace)
 """
 
+import base64
 import os
 from pathlib import Path
 
@@ -31,22 +38,85 @@ except ImportError:
     pass
 
 
+def _decode_base64_credential(encoded_value: str) -> str:
+    """
+    Decode a Base64-encoded credential.
+
+    Args:
+        encoded_value: Base64-encoded string
+
+    Returns:
+        Decoded credential string, or empty string if decoding fails
+    """
+    try:
+        decoded_bytes = base64.b64decode(encoded_value)
+        return decoded_bytes.decode('utf-8')
+    except Exception as e:
+        logger.warning(f"Failed to decode Base64 credential: {e}")
+        return ""
+
+
 def _get_credential(name: str) -> str:
-    """Get credential from Spark config or environment variable."""
+    """
+    Get credential from Spark config or environment variable.
+
+    Supports both plain-text and Base64-encoded credentials:
+    - First tries to load from {name}_B64 and decode
+    - Falls back to plain-text {name} variable
+    - Searches in Spark config first, then environment variables
+
+    Args:
+        name: Credential name (e.g., 'GCN_CLIENT_ID')
+
+    Returns:
+        Credential value or empty string if not found
+    """
+    # Try Base64-encoded version first (more secure)
+    encoded_name = f"{name}_B64"
+
     # Try Spark configuration first (for Databricks pipelines)
     try:
         from pyspark.sql import SparkSession
 
         spark = SparkSession.getActiveSession()
         if spark:
+            # Try Base64 version
+            encoded_value = spark.conf.get(encoded_name, "")
+            if encoded_value:
+                decoded = _decode_base64_credential(encoded_value)
+                if decoded:
+                    logger.info(f"Loaded {name} from Spark config (Base64-encoded)")
+                    return decoded
+
+            # Fall back to plain-text version
             value = spark.conf.get(name, "")
             if value:
+                logger.warning(
+                    f"Loaded {name} from Spark config in plain-text. "
+                    f"Consider using {encoded_name} for better security."
+                )
                 return value
     except Exception:
         pass
 
-    # Fall back to environment variable
-    return os.getenv(name, "")
+    # Fall back to environment variables
+    # Try Base64 version
+    encoded_value = os.getenv(encoded_name, "")
+    if encoded_value:
+        decoded = _decode_base64_credential(encoded_value)
+        if decoded:
+            logger.info(f"Loaded {name} from environment (Base64-encoded)")
+            return decoded
+
+    # Fall back to plain-text version
+    plain_value = os.getenv(name, "")
+    if plain_value:
+        logger.warning(
+            f"Loaded {name} from environment in plain-text. "
+            f"Consider using {encoded_name} for better security."
+        )
+
+    return plain_value
 
 
 # Kafka broker settings

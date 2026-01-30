@@ -91,20 +91,98 @@ Acesse [gcn.nasa.gov](https://gcn.nasa.gov) e crie uma conta.
 
 ### 3. Configurar credenciais no projeto
 
-Copie o arquivo de exemplo e preencha suas credenciais:
+Copie o arquivo de exemplo:
 
 ```bash
 cp .env.example .env
 ```
 
-Edite o arquivo `.env`:
+#### Opção A: Base64-encoded credentials (RECOMENDADO) 🔒
+
+Para melhor segurança, use credenciais encodadas em Base64:
+
+```bash
+# Use o script helper para encodar suas credenciais
+python scripts/encode_credentials.py
+```
+
+O script irá:
+1. Solicitar suas credenciais (input oculto)
+2. Codificá-las em Base64
+3. Exibir os valores para copiar no `.env`
+
+Cole a saída no arquivo `.env`:
+```bash
+GCN_CLIENT_ID_B64=c2V1X2NsaWVudF9pZF9hcXVp
+GCN_CLIENT_SECRET_B64=c2V1X2NsaWVudF9zZWNyZXRfYXF1aQ==
+```
+
+#### Opção B: Plain-text credentials (apenas desenvolvimento)
+
+Edite o arquivo `.env` diretamente:
 
 ```bash
 GCN_CLIENT_ID=seu_client_id_aqui
 GCN_CLIENT_SECRET=seu_client_secret_aqui
 ```
 
-⚠️ **Importante**: O arquivo `.env` está no `.gitignore` e **não será commitado**.
+⚠️ **Importante**:
+- O arquivo `.env` está no `.gitignore` e **não será commitado**
+- Base64 é ofuscação, NÃO encriptação (veja seção de segurança abaixo)
+
+### 🔐 Segurança de Credenciais
+
+#### Limitações do Databricks Community Edition
+
+O **Databricks Community Edition (Free)** possui limitações importantes:
+
+- ❌ **Não suporta** Databricks Secrets API
+- ❌ **Não suporta** integração com Azure Key Vault / AWS Secrets Manager
+- ❌ **Não suporta** Service Principals
+- ✅ **Suporta apenas** variáveis de ambiente e configuração de jobs
+
+#### Nossa Abordagem: Base64 Encoding
+
+Para mitigar riscos no Free Edition, implementamos **Base64 encoding**:
+
+**O que Base64 oferece:**
+- ✅ Ofuscação básica contra visualização acidental
+- ✅ Reduz exposição em logs e screenshots
+- ✅ Dificulta exposição em process inspection
+- ✅ Compatível com Community Edition
+
+**O que Base64 NÃO oferece:**
+- ❌ **NÃO é encriptação** - pode ser facilmente decodificado
+- ❌ **NÃO protege** contra acessos maliciosos
+- ❌ **NÃO substitui** gerenciamento adequado de secrets
+
+#### Para Ambiente de Produção
+
+Se você migrar para um workspace pago do Databricks, **recomendamos fortemente** usar:
+
+1. **Databricks Secrets** (recomendado)
+   ```python
+   dbutils.secrets.get(scope="gcn_secrets", key="client_id")
+   ```
+   - [Documentação oficial](https://docs.databricks.com/security/secrets/index.html)
+
+2. **Azure Key Vault** (Azure)
+   - Integração nativa com Databricks
+   - [Documentação](https://docs.databricks.com/security/secrets/secret-scopes.html#azure-key-vault-backed-scopes)
+
+3. **AWS Secrets Manager** (AWS)
+   - Integração via Secrets Scopes
+   - [Documentação](https://docs.databricks.com/security/secrets/secret-scopes.html#aws-secrets-manager-backed-scopes)
+
+#### Best Practices
+
+- 🔒 Use Base64 encoding no Community Edition
+- 🔄 Rotacione credenciais periodicamente
+- 📝 Nunca commite o arquivo `.env`
+- 🚨 Monitore logs para exposições acidentais
+- 🎯 Planeje migração para Databricks Secrets ao escalar
+
+> 💡 **Nota**: Esta configuração foi projetada para balancear segurança e compatibilidade com o Databricks Free Edition. Para produção, sempre use soluções enterprise de gerenciamento de secrets.
 
 
 ## 📦 Databricks Asset Bundles
