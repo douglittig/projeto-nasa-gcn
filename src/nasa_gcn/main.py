@@ -7,6 +7,7 @@ de linhas processadas na última execução do DLT.
 """
 
 import argparse
+from typing import Any, Dict, List, Optional, Union
 
 from databricks.sdk.runtime import spark
 
@@ -16,7 +17,7 @@ from nasa_gcn.utils import get_logger
 logger = get_logger(__name__)
 
 # Mapeamento de tabelas por camada (Medallion Architecture)
-TABLE_LAYERS = {
+TABLE_LAYERS: Dict[str, List[str]] = {
     "🥉 BRONZE": ["gcn_raw"],
     "🥈 SILVER": [
         "gcn_classic_text",
@@ -31,7 +32,7 @@ TABLE_LAYERS = {
 }
 
 
-def get_pipeline_id():
+def get_pipeline_id() -> Optional[str]:
     """
     Obtém o Pipeline ID do DLT dinamicamente.
     Procura por pipelines que escrevem no schema configurado.
@@ -53,7 +54,7 @@ def get_pipeline_id():
         return None
 
 
-def get_dlt_metrics(pipeline_id: str) -> dict:
+def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
     """
     Consulta o event_log do DLT para obter métricas da última execução.
 
@@ -103,7 +104,7 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
         result = spark.sql(query).collect()
 
         # Normaliza nomes: flow_name vem como "catalog.schema.table", queremos só "table"
-        metrics = {}
+        metrics: Dict[str, int] = {}
         for row in result:
             full_name = row.table_name
             # Extrai apenas o nome base da tabela (última parte após o último ponto)
@@ -121,9 +122,9 @@ def get_dlt_metrics(pipeline_id: str) -> dict:
         return {}
 
 
-def get_pipeline_stats(catalog: str, schema: str):
+def get_pipeline_stats(catalog: str, schema: str) -> Dict[str, Dict[str, Union[int, str]]]:
     """Retorna estatísticas das tabelas do pipeline GCN (contagem total)."""
-    stats = {}
+    stats: Dict[str, Dict[str, Union[int, str]]] = {}
 
     for layer_name, tables in TABLE_LAYERS.items():
         stats[layer_name] = {}
@@ -138,14 +139,14 @@ def get_pipeline_stats(catalog: str, schema: str):
     return stats
 
 
-def format_number(value) -> str:
+def format_number(value: Any) -> str:
     """Formata número com separador de milhar ou retorna string de erro."""
     if isinstance(value, int):
         return f"{value:,}"
     return str(value)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="NASA GCN Pipeline Job")
     parser.add_argument("--catalog", type=str, default="sandbox", help="Unity Catalog name")
@@ -153,7 +154,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     """Função principal executada pelo Databricks Job."""
     args = parse_args()
 
