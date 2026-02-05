@@ -2,18 +2,22 @@
 # MAGIC %md
 # MAGIC # Lab 3.2: Chunking Strategies for RAG
 # MAGIC
-# MAGIC Este notebook implementa diferentes estratégias de chunking para os GCN Circulars.
+# MAGIC Este notebook implementa diferentes estratégias de chunking para os GCN Circulars,
+# MAGIC seguindo as melhores práticas dos labs oficiais da Databricks.
 # MAGIC
 # MAGIC **Objetivos:**
 # MAGIC 1. Implementar chunking por caracteres (simples)
 # MAGIC 2. Implementar chunking por sentenças (regex - compatível com serverless)
 # MAGIC 3. Implementar chunking semântico (parágrafos)
-# MAGIC 4. Comparar estratégias e escolher a melhor
+# MAGIC 4. **Comparar estratégias COM vs SEM overlap** e avaliar trade-offs
+# MAGIC 5. **Analisar impacto do tamanho do chunk** na qualidade do retrieval
+# MAGIC 6. Aplicar chunking ao dataset e salvar em Delta Lake
 # MAGIC
 # MAGIC **Exam Topics Covered:**
 # MAGIC - Section 2: Data Preparation (14%)
-# MAGIC - Apply chunking strategy for document structure and model constraints
-# MAGIC - Design retrieval systems using advanced chunking strategies
+# MAGIC   - Apply chunking strategy for document structure and model constraints
+# MAGIC   - Design retrieval systems using advanced chunking strategies
+# MAGIC   - Evaluate how chunk size and overlap affect retrieval precision
 
 # COMMAND ----------
 
@@ -603,6 +607,273 @@ Tokens estimados (total): {estimated_total_tokens:,.0f}
    ~$0.0001 por 1K tokens
    Custo estimado: ${estimated_total_tokens/1000 * 0.0001:.2f}
 """)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 7. Comparar Estratégias: Com vs Sem Overlap
+# MAGIC
+# MAGIC Uma das decisões mais importantes no chunking é o **overlap** (sobreposição).
+# MAGIC Vamos comparar os resultados para entender o impacto.
+# MAGIC
+# MAGIC ### 🎯 Por que Overlap Importa?
+# MAGIC
+# MAGIC **Sem overlap:**
+# MAGIC ```
+# MAGIC Chunk 1: "...the burst was detected at T0."
+# MAGIC Chunk 2: "Follow-up observations started at T+300s."
+# MAGIC ```
+# MAGIC Uma query sobre "when did observations start after detection" pode perder o contexto.
+# MAGIC
+# MAGIC **Com overlap:**
+# MAGIC ```
+# MAGIC Chunk 1: "...the burst was detected at T0. Follow-up observations..."
+# MAGIC Chunk 2: "...detected at T0. Follow-up observations started at T+300s."
+# MAGIC ```
+# MAGIC Ambos os chunks contêm o contexto completo!
+
+# COMMAND ----------
+
+# DBTITLE 1,Criar chunks SEM overlap para comparação
+def chunk_by_sentences_no_overlap(text: str, max_chunk_size: int = 500) -> List[Dict[str, Any]]:
+    """Chunking por sentenças SEM overlap."""
+    if not text or len(text) == 0:
+        return []
+
+    sentences = simple_sent_tokenize(text)
+    if len(sentences) == 0:
+        return [{"chunk_text": text, "chunk_index": 0, "char_count": len(text)}]
+
+    chunks = []
+    current_chunk = []
+    current_size = 0
+    chunk_idx = 0
+
+    for sentence in sentences:
+        sentence_size = len(sentence)
+
+        if current_size + sentence_size > max_chunk_size and current_chunk:
+            chunk_text = ' '.join(current_chunk)
+            chunks.append({
+                "chunk_text": chunk_text,
+                "chunk_index": chunk_idx,
+                "char_count": len(chunk_text)
+            })
+            chunk_idx += 1
+            current_chunk = []  # SEM overlap
+            current_size = 0
+
+        current_chunk.append(sentence)
+        current_size += sentence_size
+
+    if current_chunk:
+        chunk_text = ' '.join(current_chunk)
+        chunks.append({
+            "chunk_text": chunk_text,
+            "chunk_index": chunk_idx,
+            "char_count": len(chunk_text)
+        })
+
+    return chunks
+
+# Comparar com um documento de exemplo
+sample_doc = df_prepared.select("body").limit(1).collect()[0][0]
+
+chunks_with_overlap = chunk_by_sentences(sample_doc, max_chunk_size=500, overlap_sentences=1)
+chunks_no_overlap = chunk_by_sentences_no_overlap(sample_doc, max_chunk_size=500)
+
+print(f"""
+🔬 Comparação de Overlap:
+─────────────────────────
+Documento original: {len(sample_doc):,} caracteres
+
+COM overlap (1 sentença):
+  - Total chunks: {len(chunks_with_overlap)}
+  - Chars total: {sum(c['char_count'] for c in chunks_with_overlap):,}
+  - Redundância: {sum(c['char_count'] for c in chunks_with_overlap) - len(sample_doc):,} chars extras
+
+SEM overlap:
+  - Total chunks: {len(chunks_no_overlap)}
+  - Chars total: {sum(c['char_count'] for c in chunks_no_overlap):,}
+  - Redundância: ~0 chars
+""")
+
+# COMMAND ----------
+
+# DBTITLE 1,Visualizar diferença de overlap
+# Mostrar as bordas dos chunks para ver o overlap
+print("📋 Primeiros 3 chunks COM overlap:")
+print("=" * 80)
+for i, chunk in enumerate(chunks_with_overlap[:3]):
+    print(f"\nChunk {i} ({chunk['char_count']} chars):")
+    # Mostrar início e fim
+    text = chunk['chunk_text']
+    print(f"  Início: '{text[:80]}...'")
+    print(f"  Fim:    '...{text[-80:]}'")
+
+print("\n\n📋 Primeiros 3 chunks SEM overlap:")
+print("=" * 80)
+for i, chunk in enumerate(chunks_no_overlap[:3]):
+    print(f"\nChunk {i} ({chunk['char_count']} chars):")
+    text = chunk['chunk_text']
+    print(f"  Início: '{text[:80]}...'")
+    print(f"  Fim:    '...{text[-80:]}'")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 8. Avaliar Impacto do Tamanho do Chunk
+# MAGIC
+# MAGIC O tamanho do chunk afeta diretamente a qualidade do retrieval:
+# MAGIC
+# MAGIC | Tamanho | Prós | Contras |
+# MAGIC |---------|------|---------|
+# MAGIC | **Pequeno** (100-200 chars) | Alta precisão, foco | Pode perder contexto |
+# MAGIC | **Médio** (300-500 chars) | Bom equilíbrio | Escolha mais comum |
+# MAGIC | **Grande** (600-1000 chars) | Mais contexto | Menor precisão, dilui relevância |
+# MAGIC
+# MAGIC ### 🎯 Recomendações por Caso de Uso:
+# MAGIC
+# MAGIC - **FAQ / Perguntas diretas**: Chunks menores (200-300)
+# MAGIC - **Documentos técnicos**: Chunks médios (400-600)
+# MAGIC - **Artigos científicos**: Chunks maiores (600-800)
+
+# COMMAND ----------
+
+# DBTITLE 1,Testar diferentes tamanhos de chunk
+chunk_sizes = [200, 400, 600, 800]
+results = []
+
+for size in chunk_sizes:
+    chunks = chunk_by_sentences(sample_doc, max_chunk_size=size, overlap_sentences=1)
+    total_chars = sum(c['char_count'] for c in chunks)
+    avg_chars = total_chars / len(chunks) if chunks else 0
+
+    results.append({
+        "max_size": size,
+        "num_chunks": len(chunks),
+        "avg_chunk_size": avg_chars,
+        "total_chars": total_chars,
+        "overhead_pct": ((total_chars - len(sample_doc)) / len(sample_doc)) * 100
+    })
+
+print("📊 Impacto do Tamanho do Chunk:")
+print("=" * 80)
+print(f"{'Max Size':<12} {'Chunks':<10} {'Avg Size':<12} {'Total':<12} {'Overhead %':<12}")
+print("-" * 80)
+for r in results:
+    print(f"{r['max_size']:<12} {r['num_chunks']:<10} {r['avg_chunk_size']:<12.0f} {r['total_chars']:<12,} {r['overhead_pct']:<12.1f}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Análise de trade-offs
+print("""
+📈 Análise de Trade-offs:
+═════════════════════════
+
+1. CHUNKS PEQUENOS (200-300 chars):
+   ✅ Alta precisão no retrieval
+   ✅ Menos tokens por chunk = menor custo de LLM
+   ❌ Pode fragmentar informação relacionada
+   ❌ Mais chunks = mais chamadas de embedding
+
+2. CHUNKS MÉDIOS (400-600 chars):
+   ✅ Bom equilíbrio entre precisão e contexto
+   ✅ Adequado para a maioria dos casos
+   ✅ Tamanho típico de 1-3 sentenças completas
+   → RECOMENDADO para GCN Circulars
+
+3. CHUNKS GRANDES (800+ chars):
+   ✅ Contexto rico para respostas complexas
+   ❌ Menor precisão (dilui relevância)
+   ❌ Mais tokens = maior custo de LLM
+   ❌ Pode incluir informação irrelevante
+
+💡 Nossa Escolha: 500 chars com overlap de 1 sentença
+   - Preserva contexto científico
+   - Compatível com limite de tokens do embedding model
+   - Overlap garante continuidade semântica
+""")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 9. Conceitos-Chave para o Exame
+# MAGIC
+# MAGIC ### 📚 Chunking Strategies (Section 2: Data Preparation - 14%)
+# MAGIC
+# MAGIC | Estratégia | Quando Usar | Trade-off |
+# MAGIC |------------|-------------|-----------|
+# MAGIC | **Fixed-size** | Documentos uniformes | Simples, mas pode cortar contexto |
+# MAGIC | **Sentence-based** | Textos em prosa | Preserva semântica, overhead moderado |
+# MAGIC | **Paragraph-based** | Docs estruturados | Respeita estrutura, chunks variáveis |
+# MAGIC | **Semantic** | Docs complexos | Melhor qualidade, mais complexo |
+# MAGIC
+# MAGIC ### 🎯 Exam Tips:
+# MAGIC
+# MAGIC 1. **Overlap** previne perda de contexto nas bordas dos chunks
+# MAGIC 2. **Chunk size** deve considerar:
+# MAGIC    - Limite de tokens do embedding model (tipicamente 512)
+# MAGIC    - Janela de contexto do LLM
+# MAGIC    - Custo de embedding e inferência
+# MAGIC 3. **Metadata enrichment** melhora retrieval (source, date, section)
+# MAGIC 4. **Delta Lake** é preferido para armazenar chunks (ACID, versioning)
+
+# COMMAND ----------
+
+# DBTITLE 1,Resumo das decisões de chunking
+print("""
+📋 Resumo: Decisões de Chunking para GCN Circulars
+═══════════════════════════════════════════════════
+
+┌─────────────────────┬────────────────────────────────────────┐
+│ Parâmetro           │ Valor Escolhido                        │
+├─────────────────────┼────────────────────────────────────────┤
+│ Estratégia          │ Sentence-based (regex)                 │
+│ Max chunk size      │ 500 caracteres (~125 tokens)           │
+│ Overlap             │ 1 sentença                             │
+│ Min doc size        │ 100 caracteres (filtrado antes)        │
+│ Metadata incluído   │ event_id, subject, created_on          │
+│ Storage             │ Delta Lake (Unity Catalog)             │
+└─────────────────────┴────────────────────────────────────────┘
+
+Justificativas:
+1. Sentence-based preserva contexto científico dos GCN Circulars
+2. 500 chars é compatível com embeddings BGE (max 512 tokens)
+3. Overlap de 1 sentença previne perda de contexto
+4. Regex usado ao invés de NLTK para compatibilidade serverless
+5. Metadata enriquece retrieval com informações do evento
+""")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 10. Lab Wrap-Up: Key Learnings
+# MAGIC
+# MAGIC ### ✅ O que você aprendeu:
+# MAGIC
+# MAGIC | Etapa | Conceito | Aplicação |
+# MAGIC |-------|----------|-----------|
+# MAGIC | **Chunking por caracteres** | Divisão simples com overlap | Baseline, documentos uniformes |
+# MAGIC | **Chunking por sentenças** | Respeita limites semânticos | Textos científicos, prosa |
+# MAGIC | **Chunking por parágrafos** | Preserva estrutura do documento | Docs com seções claras |
+# MAGIC | **Comparação de overlap** | Trade-off redundância vs contexto | Decisão de design |
+# MAGIC | **Análise de chunk size** | Impacto em precisão e custo | Otimização |
+# MAGIC
+# MAGIC ### 🧠 Insights Críticos:
+# MAGIC
+# MAGIC 1. **Qualidade > Quantidade**: Chunks bem estruturados superam volume
+# MAGIC 2. **Overlap é essencial**: Previne perda de contexto em bordas
+# MAGIC 3. **Tamanho importa**: Muito pequeno fragmenta, muito grande dilui
+# MAGIC 4. **Metadata enriquece**: Source, date, section melhoram retrieval
+# MAGIC 5. **Serverless requer adaptação**: NLTK não funciona, regex sim
+# MAGIC
+# MAGIC ### 🚀 Próximos Passos:
+# MAGIC
+# MAGIC 1. **Embeddings**: Gerar vetores com BGE model
+# MAGIC 2. **Vector Search**: Criar índice para retrieval
+# MAGIC 3. **RAG Chain**: Conectar retriever ao LLM
+# MAGIC 4. **Avaliação**: Medir qualidade do retrieval
 
 # COMMAND ----------
 

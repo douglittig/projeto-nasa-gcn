@@ -214,9 +214,6 @@ __pycache__/
 scratch/**
 !scratch/README.md
 
-# Databricks official course material (large files)
-docs/oficial_databricks_material/
-
 # macOS system files
 .DS_Store
 **/.DS_Store

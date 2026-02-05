@@ -51,16 +51,20 @@ lab-03-chunking-indexing/
 
 ### 2. Chunking (`02-chunking.py`)
 
-**Duração:** ~20 minutos
+**Duração:** ~30 minutos
 
 **O que você vai aprender:**
 - Chunking por caracteres (simples, com overlap)
-- Chunking por sentenças (NLTK)
+- Chunking por sentenças (regex - compatível com serverless)
 - Chunking por parágrafos (semântico)
-- Comparar estratégias e escolher a melhor
+- **Comparar estratégias COM vs SEM overlap** e avaliar trade-offs
+- **Analisar impacto do tamanho do chunk** (200, 400, 600, 800 chars)
 - Estimar tokens para custo de embedding
+- Conceitos-chave para o exame de certificação
 
 **Output:** Tabela `gcn_circulars_chunks`
+
+**Nota:** Usamos regex ao invés de NLTK para compatibilidade com clusters serverless.
 
 ### 3. Embeddings & Vector Search (`03-embeddings-vector-search.py`)
 

@@ -1,0 +1,54 @@
+# AI System Security
+
+## Slide 1: AI System Security
+In this lecture AI System Security, we discuss key AI security risks and challenges, explain why security is a top concern, introduce the Databricks Data and AI Security Framework (DASF) for simplifying protection, highlight the role of Databricks as a security platform with tools like Llama Guard, and consider practical impacts for users and organizations.
+
+## Slide 2: AI Security Risks - Security concerns span data, AI systems, abuse, and ability to audit
+AI system security is about protecting every part of an AI system—including data, models, and how the system is used or audited—from threats and abuse. It’s particularly challenging because security concerns touch on areas like data privacy, access, governance, and tracking where data comes from and how it is handled. Sometimes these systems process confidential or personally identifiable information, which raises the stakes even further.
+
+Another challenge is that many organizations use models they didn’t develop themselves, relying on third-party or open-source models, which can make it harder to control security risks. There is also the risk of harmful acts such as data poisoning or injection attacks, where bad actors corrupt data or models, potentially causing the system to expose sensitive information or behave in unwanted ways. Monitoring these AI applications for issues is also tough because evaluating and auditing them is complex and often new territory for security, data science, and engineering teams alike. With the rapid spread of generative AI, all these groups are under increasing pressure to manage these new security risks.
+
+## Slide 3: Security is a top concern for AI systems - Other concerns include governance topics like cost and reliability
+When we conducted a survey, it was clear that security is by far the top concern for many organizations when it comes to AI systems. In fact, 46 percent of respondents listed security as their primary worry, highlighting how critical this issue has become across the industry.
+
+## Slide 4: AI Security Challenges - AI security is hard because few have a complete understanding
+There are several challenges with AI security. First, it’s a completely new way of building applications, and there are many groups involved. Data scientists are now expected to handle security tasks—such as securing data sets and model training—even though they may have never done that work before. They might need to adopt new practices like red teaming to test their systems for vulnerabilities.
+
+At the same time, security teams might be unfamiliar with AI’s unique behavior, since these systems are probabilistic (stochastic) rather than deterministic, making their actions less predictable than classic software. Machine learning engineers also face new difficulties, as they move from simpler models to massive, complex neural networks that may run across many machines. When these systems go into production, there are even more real-time security issues to deal with, and being able to respond quickly to incidents becomes crucial. All these factors make simplifying and managing AI security a significant challenge.
+
+## Slide 5: Simplifying AI System Security - Securing AI systems is the securing of AI system components
+We talked about one example system with Retrieval-Augmented Generation, or RAG, which is a well-defined architecture. In RAG, you have a clear flow: an input query, an embedding model, a document or vector database, a generation model, and finally the query response along with metadata. Because the components are so clearly defined, it's easier to understand and secure each part of the system.
+
+However, as we mentioned in another course, state-of-the-art AI systems today aren’t just simple combinations of components like that. They often involve many more elements and grow much more complex as the systems evolve. This increasing complexity makes it harder to fully grasp and secure these systems, so developers and security teams need better ways to think about and manage AI security as these architectures become more intricate.
+
+## Slide 6: Data and AI Security Framework (DASF) - Organizing the AI security problem with a component-based framework
+Databricks took an approach where they collaborated with other organizations, ran workshops, and identified twelve key components of AI systems along with the risks associated with each one. They compiled these findings into a resource called the Data and AI Security Framework, or DAS App. This framework is designed to help teams organize security concerns for AI systems by breaking the problem down into these twelve components. Instead of securing each architecture individually, this approach gives a structure that can be applied to different AI systems, making it easier to assess and manage risks across various setups.
+
+## Slide 7: Data and AI Security Framework (DASF) - 12 foundational components of a generic data-centric AI/ML model
+We previously introduced the Data and AI Security Framework, or DASF, which was developed through industry workshops and identifies twelve key components and 55 associated risks in AI systems.
+While the full DASF applies to all AI/ML models, our experts have highlighted six of the twelve components that are most relevant for Generative AI developers, engineers, and scientists.
+These six crucial areas are:
+1. Data Catalog and Governance (which is component 4), focusing on managing and controlling access to data assets and models.
+2. Algorithms (component 5), which addresses the risk of attacks like data poisoning.
+3. Evaluation (component 6), essential for assessing system performance and identifying security issues.
+4. Model Management (component 8), covering the process of moving models from development to production and securing access to valuable models.
+5. Operations (component 11), ensuring ongoing quality and security through proper monitoring in production.
+6. And finally, the Platform Security (component 12) itself, because the system is only as secure as its weakest element.
+We will now look at specific tools designed to help manage these security risks.
+
+## Slide 8: How does this impact you? - Basic security for associate GenAI engineers/developers/scientists
+Out of the twelve components in the Data and AI Security Framework, this course will focus on six that are most relevant for generative AI engineers, developers, and scientists. The first is the catalog, which deals with managing and controlling access to data assets and models, as well as tracking how data changes and moves from development to production. Next is algorithms, which covers the models themselves and addresses the risks of attacks, like data poisoning or adversarial threats. The third area is evaluation, which is about assessing system performance and spotting security issues if they arise. Model management is another key focus, involving the process of managing models as they move from development to production and understanding what data was used to train them, plus securing access to especially valuable models. Operations comes next, and that’s about ensuring ongoing quality and security through proper monitoring in production environments. Finally, the platform itself must be secure since a system’s security is only as strong as its weakest element. All these areas together make up the main security challenges that will be covered in the course.
+
+## Slide 9: Databricks as Security - Databricks has been designed to meet the AI security needs
+Databricks helps with AI system security by offering tools like Unity Catalog for controlling and monitoring data access, including permissions and lineage tracking. For models, Databricks provides ways to manage deployments and monitor model performance with integrations like Lakehouse Monitoring and MLflow. Model management is supported by controlling who can store, deploy, and access models, and all access is logged for security. Operations are streamlined with asset bundles, CLIs, and secret management, while the overall platform is cloud-based and serverless, designed to be secure at its core.
+
+## Slide 10: Key Security Tooling - Unity Catalog powers data (and AI) governance in Databricks
+There are two key security tools to focus on. First, Unity Catalog plays a major role in governance and control, especially as new laws require organizations to track what data is used for model training, where models are deployed, and which customers are using them. Unity Catalog streamlines this by centrally managing and securing data and AI assets, controlling access, and tracking lineage for every step, whether the asset is a model or a vector index.
+
+Second, Mosaic AI helps with production, offering features like safety filters and Llama Guard to secure inputs and outputs during model deployment and inference. Evaluation tools such as MLflow tracking also support automated performance monitoring and assessment, making it easier to maintain and prove model security over time.
+
+## Slide 11: Llama Guard - A safeguard model to enhance safety of human-AI conversations
+One critical security component we must consider is Llama Guard. This is a safeguard model designed to significantly enhance the safety of human-AI conversations. Llama Guard works by using classifiers to classify and mitigate safety risks associated with LLM prompts (user inputs) and responses (model outputs) in real-time. The system needs two primary components to function: First, a taxonomy of risks is needed for response classification. As you can see on the slide, this taxonomy often includes categories like Violence & Hate, Sexual Content, Guns & Illegal Weapons, Regulated or Controlled Substances, Suicide & Self Harm, and Criminal Planning. Second, Llama Guard requires a guideline that instructs the system on what action needs to be taken once a risk is identified. This tool helps enforce the guardrails we discussed earlier, moving beyond simple prompt instructions to a more robust, model-based filtering system.
+
+## Slide 12: Llama Guard - A safeguard model to enhance safety of human-AI conversations (Diagram)
+This diagram illustrates how Llama Guard integrates into the flow of an AI system. Llama Guard acts as a dual safeguard. We can implement safeguards for both the user query (Input Guard) and the model response (Output Guard). The Input Guard intercepts the user's prompt before it reaches the LLM, checking if the query itself is malicious or violates the safety taxonomy. The Output Guard checks the LLM's generated response before it is delivered to the user, ensuring the model hasn't inadvertently generated harmful or inappropriate content. This layered approach provides crucial, real-time security across the conversational lifecycle.

@@ -591,20 +591,159 @@ print("✅ Métricas salvas em 'rag_evaluation_history'")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Próximos Passos
+# MAGIC ## 9. MLflow Tracing para RAG Debugging
+# MAGIC
+# MAGIC ### Por que MLflow Tracing?
+# MAGIC
+# MAGIC **MLflow Tracing** permite visualizar e debuggar cada etapa do pipeline RAG:
+# MAGIC - Tempo de execucao de cada componente
+# MAGIC - Inputs/outputs de cada etapa
+# MAGIC - Identificar gargalos de performance
+# MAGIC - Debuggar problemas de retrieval ou geracao
+# MAGIC
+# MAGIC **Exam Tip:** MLflow Tracing e essencial para monitorar RAG em producao.
+
+# COMMAND ----------
+
+# DBTITLE 1,Habilitar MLflow Tracing
+import mlflow
+
+# Habilitar tracing automatico para LangChain
+mlflow.langchain.autolog(
+    log_input_examples=True,
+    log_model_signatures=True,
+    log_models=False,  # Nao logar modelo inteiro
+    log_traces=True    # Habilitar tracing
+)
+
+print("MLflow Tracing habilitado para LangChain")
+
+# COMMAND ----------
+
+# DBTITLE 1,Executar RAG com Tracing
+# Executar uma query com tracing ativo
+with mlflow.start_run(run_name="rag_with_tracing") as run:
+    test_query = "What gamma-ray bursts were detected by Fermi?"
+
+    # A execucao sera automaticamente traced
+    response = rag_chain.invoke(test_query)
+
+    print(f"Query: {test_query}")
+    print(f"\nResponse: {response[:300]}...")
+    print(f"\nTrace disponivel no MLflow UI")
+    print(f"Run ID: {run.info.run_id}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Visualizar Traces
+# MAGIC
+# MAGIC Para ver os traces:
+# MAGIC 1. Abra o MLflow UI (Experiments no menu lateral)
+# MAGIC 2. Selecione o experimento `nasa_gcn_rag_evaluation`
+# MAGIC 3. Clique no run `rag_with_tracing`
+# MAGIC 4. Navegue para a aba **Traces**
+# MAGIC
+# MAGIC ### O que voce vera no Trace:
+# MAGIC
+# MAGIC ```
+# MAGIC rag_chain (total: 2.5s)
+# MAGIC ├── retriever (0.3s)
+# MAGIC │   ├── embed_query (0.1s)
+# MAGIC │   └── similarity_search (0.2s)
+# MAGIC ├── format_docs (0.01s)
+# MAGIC ├── prompt (0.01s)
+# MAGIC └── llm (2.1s)
+# MAGIC     └── ChatDatabricks.invoke (2.1s)
+# MAGIC ```
+# MAGIC
+# MAGIC ### Insights do Tracing:
+# MAGIC
+# MAGIC | Componente | Tempo Tipico | O que Otimizar |
+# MAGIC |------------|--------------|----------------|
+# MAGIC | **Retriever** | 200-500ms | Reduzir K, usar filtros |
+# MAGIC | **LLM** | 1-3s | Reduzir max_tokens, cache |
+# MAGIC | **Format** | <10ms | Geralmente OK |
+
+# COMMAND ----------
+
+# DBTITLE 1,Trace Manual para Debugging
+from mlflow.tracking import MlflowClient
+
+# Para debugging mais detalhado, podemos adicionar spans manuais
+@mlflow.trace(name="custom_rag_pipeline")
+def traced_rag_pipeline(question: str) -> dict:
+    """RAG pipeline com tracing detalhado."""
+
+    # Span para retrieval
+    with mlflow.start_span(name="document_retrieval") as span:
+        docs = retriever.invoke(question)
+        span.set_inputs({"question": question, "k": 5})
+        span.set_outputs({"num_docs": len(docs)})
+
+    # Span para formatacao
+    with mlflow.start_span(name="context_formatting") as span:
+        context = format_docs(docs)
+        span.set_inputs({"num_docs": len(docs)})
+        span.set_outputs({"context_length": len(context)})
+
+    # Span para geracao
+    with mlflow.start_span(name="llm_generation") as span:
+        response = rag_chain.invoke(question)
+        span.set_inputs({"context_length": len(context)})
+        span.set_outputs({"response_length": len(response)})
+
+    return {
+        "question": question,
+        "response": response,
+        "num_docs": len(docs),
+        "context_length": len(context)
+    }
+
+
+# Executar com tracing manual
+result = traced_rag_pipeline("What is the typical duration of gamma-ray bursts?")
+print(f"Response: {result['response'][:200]}...")
+print(f"Docs: {result['num_docs']}, Context: {result['context_length']} chars")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Exam Tips: MLflow Tracing
+# MAGIC
+# MAGIC 1. **Quando usar Tracing:**
+# MAGIC    - Debugging de pipelines RAG complexos
+# MAGIC    - Identificar gargalos de latencia
+# MAGIC    - Monitorar comportamento em producao
+# MAGIC
+# MAGIC 2. **Metricas importantes:**
+# MAGIC    - Latencia por componente
+# MAGIC    - Tamanho do contexto vs qualidade
+# MAGIC    - Taxa de cache hit (se implementado)
+# MAGIC
+# MAGIC 3. **Best Practices:**
+# MAGIC    - Habilitar autolog para LangChain
+# MAGIC    - Adicionar spans manuais para logica custom
+# MAGIC    - Configurar alertas para latencia alta
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Proximos Passos
 # MAGIC
 # MAGIC ### O que foi avaliado:
 # MAGIC
-# MAGIC | Métrica | Descrição | Score |
+# MAGIC | Metrica | Descricao | Score |
 # MAGIC |---------|-----------|-------|
-# MAGIC | **Keyword Precision** | Keywords esperadas na resposta | {avg_keyword_precision:.2%} |
+# MAGIC | **Keyword Precision** | Keywords esperadas na resposta | Variavel |
 # MAGIC | **Faithfulness** | Resposta fiel ao contexto | LLM-as-Judge |
-# MAGIC | **Answer Relevance** | Resposta relevante à pergunta | LLM-as-Judge |
-# MAGIC | **Context Relevance** | Contexto relevante à pergunta | LLM-as-Judge |
+# MAGIC | **Answer Relevance** | Resposta relevante a pergunta | LLM-as-Judge |
+# MAGIC | **Context Relevance** | Contexto relevante a pergunta | LLM-as-Judge |
+# MAGIC | **MLflow Tracing** | Debugging de pipeline | Habilitado |
 # MAGIC
-# MAGIC ### Próximo Lab: 05-deployment
+# MAGIC ### Proximo Lab: 05-deployment
 # MAGIC
-# MAGIC No próximo lab, faremos o deploy do RAG:
+# MAGIC No proximo lab, faremos o deploy do RAG:
 # MAGIC 1. Criar modelo PyFunc
 # MAGIC 2. Registrar no Unity Catalog
 # MAGIC 3. Deploy como Model Serving endpoint
