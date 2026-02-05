@@ -147,13 +147,36 @@ def simple_sent_tokenize(text: str) -> List[str]:
 
     Funciona bem para textos científicos em inglês como GCN Circulars.
     """
-    # Padrão: quebra em . ! ? seguido de espaço e letra maiúscula
-    # Preserva abreviações comuns (e.g., Dr., Fig., etc.)
-    sentence_pattern = r'(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Fig|Tab|Eq|et al|i\.e|e\.g))\. +(?=[A-Z])|(?<=[!?]) +(?=[A-Z])'
+    # Proteger abreviações comuns substituindo temporariamente
+    abbreviations = ['Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Prof.', 'Fig.', 'Tab.', 'Eq.', 'et al.', 'i.e.', 'e.g.', 'vs.', 'etc.']
+    protected = text
+    for i, abbr in enumerate(abbreviations):
+        protected = protected.replace(abbr, f"__ABBR{i}__")
 
-    sentences = re.split(sentence_pattern, text)
-    # Limpar e filtrar sentenças vazias
-    return [s.strip() for s in sentences if s and s.strip()]
+    # Dividir em sentenças: . ! ? seguido de espaço e letra maiúscula
+    sentences = re.split(r'([.!?]) +(?=[A-Z])', protected)
+
+    # Recombinar pontuação com a sentença anterior
+    result = []
+    i = 0
+    while i < len(sentences):
+        if i + 1 < len(sentences) and sentences[i + 1] in '.!?':
+            result.append(sentences[i] + sentences[i + 1])
+            i += 2
+        else:
+            result.append(sentences[i])
+            i += 1
+
+    # Restaurar abreviações
+    final = []
+    for sent in result:
+        restored = sent
+        for i, abbr in enumerate(abbreviations):
+            restored = restored.replace(f"__ABBR{i}__", abbr)
+        if restored.strip():
+            final.append(restored.strip())
+
+    return final
 
 
 def chunk_by_sentences(text: str, max_chunk_size: int = 500, overlap_sentences: int = 1) -> List[Dict[str, Any]]:
@@ -341,9 +364,36 @@ def sentence_chunk_udf(text: str) -> List[Dict]:
 
     def _sent_tokenize(text: str) -> List[str]:
         """Tokenizador de sentenças usando regex."""
-        pattern = r'(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Fig|Tab|Eq|et al|i\.e|e\.g))\. +(?=[A-Z])|(?<=[!?]) +(?=[A-Z])'
-        sentences = re.split(pattern, text)
-        return [s.strip() for s in sentences if s and s.strip()]
+        # Proteger abreviações comuns
+        abbreviations = ['Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Prof.', 'Fig.', 'Tab.', 'Eq.', 'et al.', 'i.e.', 'e.g.', 'vs.', 'etc.']
+        protected = text
+        for i, abbr in enumerate(abbreviations):
+            protected = protected.replace(abbr, f"__ABBR{i}__")
+
+        # Dividir em sentenças
+        sentences = re.split(r'([.!?]) +(?=[A-Z])', protected)
+
+        # Recombinar pontuação
+        result = []
+        i = 0
+        while i < len(sentences):
+            if i + 1 < len(sentences) and sentences[i + 1] in '.!?':
+                result.append(sentences[i] + sentences[i + 1])
+                i += 2
+            else:
+                result.append(sentences[i])
+                i += 1
+
+        # Restaurar abreviações
+        final = []
+        for sent in result:
+            restored = sent
+            for i, abbr in enumerate(abbreviations):
+                restored = restored.replace(f"__ABBR{i}__", abbr)
+            if restored.strip():
+                final.append(restored.strip())
+
+        return final
 
     def _chunk_by_sentences(text: str, max_chunk_size: int = 500, overlap_sentences: int = 1) -> List[Dict[str, Any]]:
         if not text or len(text) == 0:
