@@ -6,7 +6,7 @@
 # MAGIC
 # MAGIC **Objetivos:**
 # MAGIC 1. Implementar chunking por caracteres (simples)
-# MAGIC 2. Implementar chunking por sentenças (NLTK)
+# MAGIC 2. Implementar chunking por sentenças (regex - compatível com serverless)
 # MAGIC 3. Implementar chunking semântico (parágrafos)
 # MAGIC 4. Comparar estratégias e escolher a melhor
 # MAGIC
@@ -130,9 +130,12 @@ print(f"Primeiro chunk: '{test_chunks[0]['chunk_text'][:50]}...'")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. Estratégia 2: Sentence-based Chunking (NLTK)
+# MAGIC ## 2. Estratégia 2: Sentence-based Chunking (Regex)
 # MAGIC
 # MAGIC Chunking inteligente que respeita limites de sentenças.
+# MAGIC
+# MAGIC > **Nota:** Usamos regex ao invés de NLTK para compatibilidade com clusters serverless.
+# MAGIC > NLTK requer download de dados que não ficam disponíveis nos workers do Spark.
 
 # COMMAND ----------
 
