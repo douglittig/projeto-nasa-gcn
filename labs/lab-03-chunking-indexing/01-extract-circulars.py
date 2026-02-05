@@ -1,4 +1,13 @@
 # Databricks notebook source
+# MAGIC %pip install mlflow>=3
+
+# COMMAND ----------
+
+import mlflow
+print(mlflow.__version__)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC # Lab 3.1: Extract GCN Circulars for RAG
 # MAGIC
