@@ -23,13 +23,13 @@
 # COMMAND ----------
 
 # DBTITLE 1,Instalar dependências
-# MAGIC %pip install nltk tiktoken -q
+# MAGIC %pip install tiktoken -q
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
 # DBTITLE 1,Imports e configuração
-import nltk
+import re
 import tiktoken
 from typing import List, Dict, Any
 from pyspark.sql.functions import (
@@ -37,10 +37,6 @@ from pyspark.sql.functions import (
     monotonically_increasing_id, concat_ws, size, array
 )
 from pyspark.sql.types import ArrayType, StructType, StructField, StringType, IntegerType
-
-# Download NLTK data
-nltk.download('punkt', quiet=True)
-nltk.download('punkt_tab', quiet=True)
 
 # Configuração
 CATALOG = "sandbox"
@@ -141,7 +137,24 @@ print(f"Primeiro chunk: '{test_chunks[0]['chunk_text'][:50]}...'")
 # COMMAND ----------
 
 # DBTITLE 1,Definir função de chunking por sentenças
-from nltk.tokenize import sent_tokenize
+# Nota: Usamos regex ao invés de NLTK para compatibilidade com clusters serverless
+# NLTK requer download de dados que não ficam disponíveis nos workers
+
+def simple_sent_tokenize(text: str) -> List[str]:
+    """
+    Tokenizador de sentenças simples usando regex.
+    Compatível com clusters serverless (não requer NLTK).
+
+    Funciona bem para textos científicos em inglês como GCN Circulars.
+    """
+    # Padrão: quebra em . ! ? seguido de espaço e letra maiúscula
+    # Preserva abreviações comuns (e.g., Dr., Fig., etc.)
+    sentence_pattern = r'(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Fig|Tab|Eq|et al|i\.e|e\.g))\. +(?=[A-Z])|(?<=[!?]) +(?=[A-Z])'
+
+    sentences = re.split(sentence_pattern, text)
+    # Limpar e filtrar sentenças vazias
+    return [s.strip() for s in sentences if s and s.strip()]
+
 
 def chunk_by_sentences(text: str, max_chunk_size: int = 500, overlap_sentences: int = 1) -> List[Dict[str, Any]]:
     """
@@ -158,8 +171,8 @@ def chunk_by_sentences(text: str, max_chunk_size: int = 500, overlap_sentences: 
     if not text or len(text) == 0:
         return []
 
-    # Tokenizar em sentenças
-    sentences = sent_tokenize(text)
+    # Tokenizar em sentenças (usando regex, compatível com serverless)
+    sentences = simple_sent_tokenize(text)
 
     if len(sentences) == 0:
         return [{"chunk_text": text, "chunk_index": 0, "sentence_count": 1, "char_count": len(text)}]
@@ -316,11 +329,69 @@ chunk_schema = ArrayType(StructType([
 ]))
 
 # UDF para chunking por sentenças (melhor para textos científicos)
+# IMPORTANTE: Todo o código deve estar inline no UDF para funcionar em clusters serverless
 @udf(returnType=chunk_schema)
 def sentence_chunk_udf(text: str) -> List[Dict]:
+    """
+    UDF que aplica chunking por sentenças.
+    Código inline para compatibilidade com serverless.
+    """
+    import re
+    from typing import List, Dict, Any
+
+    def _sent_tokenize(text: str) -> List[str]:
+        """Tokenizador de sentenças usando regex."""
+        pattern = r'(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Fig|Tab|Eq|et al|i\.e|e\.g))\. +(?=[A-Z])|(?<=[!?]) +(?=[A-Z])'
+        sentences = re.split(pattern, text)
+        return [s.strip() for s in sentences if s and s.strip()]
+
+    def _chunk_by_sentences(text: str, max_chunk_size: int = 500, overlap_sentences: int = 1) -> List[Dict[str, Any]]:
+        if not text or len(text) == 0:
+            return []
+
+        sentences = _sent_tokenize(text)
+
+        if len(sentences) == 0:
+            return [{"chunk_text": text, "chunk_index": 0, "sentence_count": 1, "char_count": len(text)}]
+
+        chunks = []
+        current_chunk = []
+        current_size = 0
+        chunk_idx = 0
+
+        for sentence in sentences:
+            sentence_size = len(sentence)
+
+            if current_size + sentence_size > max_chunk_size and current_chunk:
+                chunk_text = ' '.join(current_chunk)
+                chunks.append({
+                    "chunk_text": chunk_text,
+                    "chunk_index": chunk_idx,
+                    "sentence_count": len(current_chunk),
+                    "char_count": len(chunk_text)
+                })
+                chunk_idx += 1
+                current_chunk = current_chunk[-overlap_sentences:] if overlap_sentences > 0 else []
+                current_size = sum(len(s) for s in current_chunk)
+
+            current_chunk.append(sentence)
+            current_size += sentence_size
+
+        if current_chunk:
+            chunk_text = ' '.join(current_chunk)
+            chunks.append({
+                "chunk_text": chunk_text,
+                "chunk_index": chunk_idx,
+                "sentence_count": len(current_chunk),
+                "char_count": len(chunk_text)
+            })
+
+        return chunks
+
+    # Executar chunking
     if not text:
         return []
-    chunks = chunk_by_sentences(text, max_chunk_size=500, overlap_sentences=1)
+    chunks = _chunk_by_sentences(text, max_chunk_size=500, overlap_sentences=1)
     return [{"chunk_text": c["chunk_text"], "chunk_index": c["chunk_index"], "char_count": c["char_count"]}
             for c in chunks]
 
