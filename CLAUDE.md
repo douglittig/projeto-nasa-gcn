@@ -6,9 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 NASA GCN (Gamma-ray Coordinates Network) Data Pipeline using Databricks Asset Bundles and Delta Live Tables. Ingests real-time astronomical alerts from NASA's Kafka stream through a medallion architecture (Bronze -> Silver -> Gold).
 
-The project also includes a **GenAI Certification Lab Series** (`labs/`) implementing RAG (Retrieval-Augmented Generation) patterns on GCN data for Databricks GenAI Associate certification preparation.
-
-**Stack:** Databricks Asset Bundles, Delta Live Tables (DLT), PySpark, NASA GCN Kafka, MLflow, Vector Search, LangChain, `uv` package manager.
+**Stack:** Databricks Asset Bundles, Delta Live Tables (DLT), PySpark, NASA GCN Kafka, `uv` package manager.
 
 ## Common Commands
 
@@ -130,29 +128,20 @@ Use `python scripts/encode_credentials.py` to encode credentials. `deploy.sh` au
 
 See `TECHNICAL_DEBT.md` for full issue tracking and sprint planning.
 
-## GenAI Labs (`labs/`)
+## Key Files
 
-Labs 3-10 implement a complete RAG pipeline on GCN Circulars data for certification prep:
+| File | Purpose |
+|------|---------|
+| `src/nasa_gcn/dlt_pipeline.py` | Main DLT pipeline (Bronze → Silver → Gold) |
+| `src/nasa_gcn/binary_parser.py` | GCN binary packet decoder (source of truth) |
+| `src/nasa_gcn/schemas.py` | PySpark schemas for all GCN topics |
+| `src/nasa_gcn/config.py` | Kafka and credential configuration |
+| `src/nasa_gcn/main.py` | Pipeline status report and metrics |
+| `deploy.sh` | Deployment script with credential handling |
+| `databricks.yml` | Asset bundle configuration |
 
-| Lab | Focus | Key Resources Created |
-|-----|-------|----------------------|
-| 03 | Chunking & Indexing | `gcn_circulars_chunks`, Vector Search index |
-| 04 | RAG Application | Retriever chain, evaluation dataset |
-| 05 | Deployment | PyFunc model, Model Serving endpoint |
-| 06 | Model Management | UC model registration, aliases |
-| 07 | Guardrails | PII detection, prompt protection |
-| 08 | Monitoring | Inference tables, metrics dashboard |
-| 09 | Vector Optimization | Embedding strategies, index tuning |
-| 10 | Production Readiness | Checklist validation, load simulation |
+## Documentation
 
-**Lab Execution Context:** Labs are designed to run as Databricks notebooks. Each lab has a README with prerequisites and expected outputs. Run in sequence (Lab 3 → 10) as later labs depend on resources created by earlier ones.
-
-**Key Patterns:**
-- Vector Search endpoint: `nasa_gcn_vs_endpoint`
-- Embedding model: `databricks-bge-large-en`
-- RAG model registered at: `sandbox.nasa_gcn_dev.gcn_rag_model`
-
-**Study Resources:**
-- Trilha de 30 dias: `docs/TRILHA_ESTUDOS_30_DIAS.md`
-- Knowledge base: `docs/oficial_databricks_material/knowledge_base/`
-- O'Reilly Book chapters: `00-OReilly-Book/`
+- `docs/GCN_*.md` - RAG context documentation for each GCN topic
+- `docs/GOLD_LAYER.md` - Gold layer enrichment logic
+- `docs/TRILHA_ESTUDOS_30_DIAS.md` - 30-day study track for Databricks GenAI certification
