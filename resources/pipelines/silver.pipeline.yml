@@ -1,0 +1,34 @@
+# ==============================================================================
+# SILVER PIPELINE: Cleaned & Typed Data
+# ==============================================================================
+# Reads from Bronze raw table and creates topic-specific Silver tables
+# with proper schemas, parsing, and data quality.
+#
+# Source: nasa_gcn.bronze.raw
+# Target: nasa_gcn.silver.*
+# ==============================================================================
+
+resources:
+  pipelines:
+    silver_pipeline:
+      name: "[${bundle.target}] NASA GCN Silver"
+
+      # Unity Catalog destination
+      catalog: ${var.catalog}
+      schema: ${var.schema_silver}
+
+      # Serverless execution
+      serverless: true
+
+      # Pipeline code
+      libraries:
+        - file:
+            path: ../../src/nasa_gcn/pipelines/silver_pipeline.py
+
+      # Configuration passed to pipeline
+      configuration:
+        bundle.sourcePath: ${workspace.file_path}/src
+
+        # Source catalog/schema for reading Bronze data
+        bronze_catalog: ${var.catalog}
+        bronze_schema: ${var.schema_bronze}

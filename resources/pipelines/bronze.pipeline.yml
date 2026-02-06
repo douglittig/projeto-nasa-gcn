@@ -1,0 +1,33 @@
+# ==============================================================================
+# BRONZE PIPELINE: Raw Data Ingestion
+# ==============================================================================
+# Ingests raw messages from NASA GCN Kafka into bronze.raw table.
+# This is the first step in the medallion architecture.
+#
+# Target: nasa_gcn.bronze.raw
+# ==============================================================================
+
+resources:
+  pipelines:
+    bronze_pipeline:
+      name: "[${bundle.target}] NASA GCN Bronze"
+
+      # Unity Catalog destination
+      catalog: ${var.catalog}
+      schema: ${var.schema_bronze}
+
+      # Serverless execution
+      serverless: true
+
+      # Pipeline code
+      libraries:
+        - file:
+            path: ../../src/nasa_gcn/pipelines/bronze_pipeline.py
+
+      # Configuration passed to pipeline
+      configuration:
+        bundle.sourcePath: ${workspace.file_path}/src
+
+        # NASA GCN Kafka credentials
+        GCN_CLIENT_ID: ${var.gcn_client_id}
+        GCN_CLIENT_SECRET: ${var.gcn_client_secret}

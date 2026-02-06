@@ -3,7 +3,10 @@ NASA GCN Pipeline - Entry Point
 
 Este módulo é o ponto de entrada para execução via Databricks Jobs.
 Executa validações e exibe estatísticas do pipeline, incluindo métricas
-de linhas processadas na última execução do DLT.
+de linhas processadas na última execução dos pipelines DLT.
+
+Arquitetura Medallion:
+  nasa_gcn.bronze.raw → nasa_gcn.silver.* → nasa_gcn.gold.*
 """
 
 import argparse
@@ -17,41 +20,63 @@ from nasa_gcn.utils import get_logger
 logger = get_logger(__name__)
 
 # Mapeamento de tabelas por camada (Medallion Architecture)
-TABLE_LAYERS: Dict[str, List[str]] = {
-    "🥉 BRONZE": ["gcn_raw"],
-    "🥈 SILVER": [
-        "gcn_classic_text",
-        "gcn_classic_voevent",
-        "gcn_classic_binary",
-        "gcn_notices",
-        "gcn_circulars",
-        "igwn_gwalert",
-        "gcn_heartbeat",
-    ],
-    "🥇 GOLD": ["gcn_events_summarized"],
+# Estrutura: {layer_name: {schema_arg: [table_names]}}
+TABLE_LAYERS: Dict[str, Dict[str, List[str]]] = {
+    "🥉 BRONZE": {
+        "bronze": ["gcn_raw"],
+    },
+    "🥈 SILVER": {
+        "silver": [
+            "gcn_circulars",
+            "gcn_notices",
+            "gcn_classic_text",
+            "gcn_classic_voevent",
+            "gcn_classic_binary",
+            "gcn_gwalert",
+            "gcn_heartbeat",
+        ],
+    },
+    "🥇 GOLD": {
+        "gold": [
+            "gcn_events_summary",
+            "gcn_daily_stats",
+        ],
+    },
 }
 
 
-def get_pipeline_id() -> Optional[str]:
+def get_pipeline_ids() -> Dict[str, Optional[str]]:
     """
-    Obtém o Pipeline ID do DLT dinamicamente.
-    Procura por pipelines que escrevem no schema configurado.
+    Obtém os Pipeline IDs dos 3 pipelines DLT dinamicamente.
+    Retorna dict com {layer: pipeline_id}.
     """
     from databricks.sdk import WorkspaceClient
+
+    pipelines_found: Dict[str, Optional[str]] = {
+        "bronze": None,
+        "silver": None,
+        "gold": None,
+    }
 
     try:
         w = WorkspaceClient()
         pipelines = list(w.pipelines.list_pipelines())
 
         for pipeline in pipelines:
-            # Procura pelo pipeline que usa nosso schema (considera prefixo [dev ...])
-            # Ex: "[dev dltreinamentos_data] nasa_gcn_pipeline" ou "nasa_gcn_pipeline"
-            if pipeline.name and "nasa_gcn" in pipeline.name.lower():
-                return pipeline.pipeline_id
-        return None
+            if not pipeline.name:
+                continue
+            name_lower = pipeline.name.lower()
+            if "bronze" in name_lower and "nasa" in name_lower:
+                pipelines_found["bronze"] = pipeline.pipeline_id
+            elif "silver" in name_lower and "nasa" in name_lower:
+                pipelines_found["silver"] = pipeline.pipeline_id
+            elif "gold" in name_lower and "nasa" in name_lower:
+                pipelines_found["gold"] = pipeline.pipeline_id
+
+        return pipelines_found
     except Exception as e:
-        logger.error(f"Erro ao obter Pipeline ID: {e}")
-        return None
+        logger.error(f"Erro ao obter Pipeline IDs: {e}")
+        return pipelines_found
 
 
 def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
@@ -60,24 +85,13 @@ def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
 
     Retorna um dicionário com o número de linhas processadas por tabela:
     {"table_name": num_output_rows, ...}
-
-    Nota: Tabelas streaming (Bronze/Silver) podem não reportar num_output_rows
-    da mesma forma que tabelas batch (Gold).
     """
     if not pipeline_id:
         return {}
 
     try:
-        # Query para obter métricas de flow_progress da última execução
-        # O event_log() é uma table-valued function do Unity Catalog
-        #
-        # Status possíveis: QUEUED, STARTING, RUNNING, COMPLETED, FAILED,
-        #                   SKIPPED, STOPPED, IDLE, EXCLUDED
-        # - Tabelas batch (dlt.read) geralmente reportam COMPLETED
-        # - Tabelas streaming (dlt.read_stream) podem reportar IDLE ou RUNNING
         query = f"""
         WITH latest_update AS (
-            -- Encontra o update_id mais recente
             SELECT origin.update_id
             FROM event_log('{pipeline_id}')
             WHERE event_type = 'create_update'
@@ -85,8 +99,6 @@ def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
             LIMIT 1
         ),
         flow_metrics AS (
-            -- Extrai métricas de cada flow (tabela) do último update
-            -- Não filtra por status específico para capturar streaming e batch
             SELECT
                 origin.flow_name AS table_name,
                 details:flow_progress:status::STRING AS flow_status,
@@ -103,13 +115,10 @@ def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
 
         result = spark.sql(query).collect()
 
-        # Normaliza nomes: flow_name vem como "catalog.schema.table", queremos só "table"
         metrics: Dict[str, int] = {}
         for row in result:
             full_name = row.table_name
-            # Extrai apenas o nome base da tabela (última parte após o último ponto)
             table_basename = full_name.split(".")[-1] if full_name else full_name
-            # Soma caso haja múltiplos registros para a mesma tabela
             if table_basename in metrics:
                 metrics[table_basename] += row.rows_processed
             else:
@@ -122,21 +131,13 @@ def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
         return {}
 
 
-def get_pipeline_stats(catalog: str, schema: str) -> Dict[str, Dict[str, Union[int, str]]]:
-    """Retorna estatísticas das tabelas do pipeline GCN (contagem total)."""
-    stats: Dict[str, Dict[str, Union[int, str]]] = {}
-
-    for layer_name, tables in TABLE_LAYERS.items():
-        stats[layer_name] = {}
-        for table_name in tables:
-            full_name = f"{catalog}.{schema}.{table_name}"
-            try:
-                count = spark.table(full_name).count()
-                stats[layer_name][table_name] = count
-            except Exception as e:
-                stats[layer_name][table_name] = f"Error: {e}"
-
-    return stats
+def get_table_count(catalog: str, schema: str, table: str) -> Union[int, str]:
+    """Retorna contagem de uma tabela ou mensagem de erro."""
+    full_name = f"{catalog}.{schema}.{table}"
+    try:
+        return spark.table(full_name).count()
+    except Exception as e:
+        return f"Error: {e}"
 
 
 def format_number(value: Any) -> str:
@@ -149,8 +150,30 @@ def format_number(value: Any) -> str:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="NASA GCN Pipeline Job")
-    parser.add_argument("--catalog", type=str, default="sandbox", help="Unity Catalog name")
-    parser.add_argument("--schema", type=str, default="nasa_gcn_dev", help="Schema name")
+    parser.add_argument(
+        "--catalog",
+        type=str,
+        default="nasa_gcn",
+        help="Unity Catalog name"
+    )
+    parser.add_argument(
+        "--schema-bronze",
+        type=str,
+        default="bronze",
+        help="Schema for Bronze layer"
+    )
+    parser.add_argument(
+        "--schema-silver",
+        type=str,
+        default="silver",
+        help="Schema for Silver layer"
+    )
+    parser.add_argument(
+        "--schema-gold",
+        type=str,
+        default="gold",
+        help="Schema for Gold layer"
+    )
     return parser.parse_args()
 
 
@@ -158,38 +181,53 @@ def main() -> None:
     """Função principal executada pelo Databricks Job."""
     args = parse_args()
 
+    schemas = {
+        "bronze": args.schema_bronze,
+        "silver": args.schema_silver,
+        "gold": args.schema_gold,
+    }
+
     print("=" * 60)
     print("NASA GCN Pipeline - Status Report")
-    print(f"Catalog: {args.catalog} | Schema: {args.schema}")
+    print(f"Catalog: {args.catalog}")
+    print(f"Schemas: bronze={schemas['bronze']}, silver={schemas['silver']}, gold={schemas['gold']}")
     print("=" * 60)
 
-    # Obtém contagens totais das tabelas
-    stats = get_pipeline_stats(args.catalog, args.schema)
+    # Obtém métricas DLT da última execução de cada pipeline
+    pipeline_ids = get_pipeline_ids()
+    all_dlt_metrics: Dict[str, int] = {}
 
-    # Obtém métricas DLT da última execução
-    pipeline_id = get_pipeline_id()
-    dlt_metrics = get_dlt_metrics(pipeline_id) if pipeline_id else {}
+    for layer, pid in pipeline_ids.items():
+        if pid:
+            metrics = get_dlt_metrics(pid)
+            all_dlt_metrics.update(metrics)
 
-    if dlt_metrics:
-        print("\n📊 Métricas da última execução do pipeline")
+    if all_dlt_metrics:
+        print("\n📊 Métricas da última execução dos pipelines")
         print("-" * 40)
 
-    for layer, tables in stats.items():
-        print(f"\n{layer}")
+    # Itera por cada camada
+    for layer_name, schema_tables in TABLE_LAYERS.items():
+        print(f"\n{layer_name}")
         print("-" * 40)
 
-        for table_name, total_count in tables.items():
-            total_str = format_number(total_count)
+        for schema_key, tables in schema_tables.items():
+            schema = schemas[schema_key]
 
-            # Verifica se temos métricas DLT para esta tabela
-            rows_processed = dlt_metrics.get(table_name)
+            for table_name in tables:
+                total_count = get_table_count(args.catalog, schema, table_name)
+                total_str = format_number(total_count)
 
-            if rows_processed is not None and rows_processed > 0:
-                print(
-                    f"  • {table_name}: {total_str} (total) | +{rows_processed:,} (última execução)"
-                )
-            else:
-                print(f"  • {table_name}: {total_str}")
+                # Verifica se temos métricas DLT para esta tabela
+                rows_processed = all_dlt_metrics.get(table_name)
+
+                if rows_processed is not None and rows_processed > 0:
+                    print(
+                        f"  • {args.catalog}.{schema}.{table_name}: "
+                        f"{total_str} (total) | +{rows_processed:,} (última execução)"
+                    )
+                else:
+                    print(f"  • {args.catalog}.{schema}.{table_name}: {total_str}")
 
     print("\n" + "=" * 60)
     print("Pipeline executado com sucesso!")

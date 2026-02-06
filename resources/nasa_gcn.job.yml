@@ -1,108 +1,100 @@
 # ==============================================================================
-# DATABRICKS JOB: NASA GCN Pipeline
+# DATABRICKS JOB: NASA GCN Pipeline Orchestration
 # ==============================================================================
 #
-# O que é um Job Databricks?
-# --------------------------
-# Um Job é uma unidade de execução agendada que pode conter múltiplas tasks
-# (tarefas) executadas em sequência ou paralelo. Jobs permitem orquestrar
-# workflows complexos com dependências entre tarefas.
+# Este job orquestra a execução dos 3 pipelines em ordem:
+#   1. Bronze Pipeline → Ingere dados brutos do Kafka
+#   2. Silver Pipeline → Limpa e tipifica os dados
+#   3. Gold Pipeline   → Agrega e enriquece para consumo
 #
-# Este job orquestra 3 tarefas:
-#   1. notebook_task   → Executa notebook de validação
-#   2. refresh_pipeline → Atualiza o pipeline DLT (Delta Live Tables)
-#   3. main_task       → Executa o módulo Python principal
+# Arquitetura Medallion:
+#   nasa_gcn.bronze.raw → nasa_gcn.silver.* → nasa_gcn.gold.*
 #
-# Referência: https://docs.databricks.com/api/workspace/jobs/create
+# Schedule: Todos os dias às 8:00 AM (horário de Brasília)
 # ==============================================================================
 
 resources:
   jobs:
     nasa_gcn_job:
-      name: nasa_gcn_job
+      name: "[${bundle.target}] NASA GCN Daily Ingestion"
 
       # ------------------------------------------------------------------------
       # SCHEDULE: Agendamento do job
       # ------------------------------------------------------------------------
-      # Executa todos os dias às 8:00 AM (horário de Brasília).
-      # Expressão cron: minuto hora dia mês dia_da_semana
-      #   0 8 * * * = às 08:00, todos os dias
-      #
-      # Referência: https://docs.databricks.com/jobs.html#schedule
       schedule:
         quartz_cron_expression: "0 0 8 * * ?"  # 8:00 AM diariamente
-        timezone_id: "America/Sao_Paulo"        # Horário de Brasília
-        pause_status: UNPAUSED                  # Ativo (PAUSED para desativar)
+        timezone_id: "America/Sao_Paulo"
+        pause_status: UNPAUSED
 
-      # Notificações por email (descomentando, envia email quando job falha)
-      #email_notifications:
-      #  on_failure:
-      #    - seu_email@exemplo.com
+      # Email notifications (uncomment to enable)
+      # email_notifications:
+      #   on_failure:
+      #     - seu_email@exemplo.com
 
       # ------------------------------------------------------------------------
-      # TASKS: Tarefas que compõem o job
+      # TASKS: Pipeline orchestration (Bronze → Silver → Gold)
       # ------------------------------------------------------------------------
-      # Cada task pode ser:
-      #   - notebook_task: Executa um notebook
-      #   - pipeline_task: Atualiza um pipeline DLT
-      #   - python_wheel_task: Executa um pacote Python instalado
-      #   - spark_python_task: Executa um arquivo Python específico
-      #
-      # A ordem de execução é definida por 'depends_on'.
       tasks:
         # ======================================================================
         # TASK 1: Validação de Pré-requisitos
         # ======================================================================
-        # Primeira tarefa: executa validações antes do pipeline DLT.
-        # Verifica:
-        #   ✓ Módulo nasa_gcn instalado corretamente (wheel)
-        #   ✓ Credenciais GCN_CLIENT_ID e GCN_CLIENT_SECRET configuradas
-        #   ✓ Conectividade TCP com kafka.gcn.nasa.gov:9092
-        # Se falhar, o job para aqui, economizando recursos.
-        - task_key: notebook_task
+        - task_key: validate
           notebook_task:
-            notebook_path: ../src/notebook.ipynb # Notebook de validação
+            notebook_path: ../src/notebook.ipynb
 
         # ======================================================================
-        # TASK 2: Atualização do Pipeline DLT
+        # TASK 2: Bronze Pipeline - Raw Data Ingestion
         # ======================================================================
-        # Depende da task 1. Executa/atualiza o pipeline Delta Live Tables
-        # que ingere dados do NASA GCN Kafka.
-        # O ID do pipeline vem da definição em nasa_gcn.pipeline.yml
-        - task_key: refresh_pipeline
+        - task_key: bronze
           depends_on:
-            - task_key: notebook_task # Aguarda notebook_task terminar
+            - task_key: validate
           pipeline_task:
-            # Referência ao pipeline definido neste mesmo bundle
-            pipeline_id: ${resources.pipelines.nasa_gcn_pipeline.id}
+            pipeline_id: ${resources.pipelines.bronze_pipeline.id}
 
         # ======================================================================
-        # TASK 3: Execução do Módulo Python Principal
+        # TASK 3: Silver Pipeline - Data Cleaning & Typing
         # ======================================================================
-        # Tarefa final: executa o código Python empacotado como wheel.
-        # O entry_point 'main' corresponde ao definido em pyproject.toml
-        - task_key: main_task
+        - task_key: silver
           depends_on:
-            - task_key: refresh_pipeline # Aguarda pipeline terminar
-          environment_key: default # Usa o ambiente definido abaixo
+            - task_key: bronze
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver_pipeline.id}
+
+        # ======================================================================
+        # TASK 4: Gold Pipeline - Aggregation & Enrichment
+        # ======================================================================
+        - task_key: gold
+          depends_on:
+            - task_key: silver
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.gold_pipeline.id}
+
+        # ======================================================================
+        # TASK 5: Status Report
+        # ======================================================================
+        - task_key: report
+          depends_on:
+            - task_key: gold
+          environment_key: default
           python_wheel_task:
-            package_name: nasa_gcn # Nome do pacote Python
-            entry_point: main # Função/script a executar
+            package_name: nasa_gcn
+            entry_point: main
             parameters:
               - "--catalog"
               - "${var.catalog}"
-              - "--schema"
-              - "${var.schema}"
+              - "--schema-bronze"
+              - "${var.schema_bronze}"
+              - "--schema-silver"
+              - "${var.schema_silver}"
+              - "--schema-gold"
+              - "${var.schema_gold}"
 
       # ------------------------------------------------------------------------
-      # ENVIRONMENTS: Ambientes de execução para as tasks
+      # ENVIRONMENTS
       # ------------------------------------------------------------------------
-      # Define as dependências Python que serão instaladas no cluster.
-      # O wheel (*.whl) é construído pelo 'artifacts' em databricks.yml
       environments:
         - environment_key: default
           spec:
-            environment_version: "2" # Versão do spec de ambiente
+            environment_version: "2"
             dependencies:
-              - ../dist/*.whl # Wheel gerado pelo build
-
+              - ../dist/*.whl

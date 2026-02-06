@@ -58,6 +58,7 @@ sync:
   include:
     - src/*.py
     - src/nasa_gcn/*.py
+    - src/nasa_gcn/pipelines/*.py
     - dist/*.whl
 
 # ------------------------------------------------------------------------------
@@ -74,11 +75,17 @@ variables:
   gcn_client_secret:
     description: "NASA GCN OAuth Client Secret - Mantido em segredo, nunca versionar!"
   catalog:
-    description: "Unity Catalog name for tables"
-    default: "sandbox"
-  schema:
-    description: "Schema name for tables"
-    default: "nasa_gcn_${bundle.target}"
+    description: "Unity Catalog name for all nasa_gcn tables"
+    default: "nasa_gcn"
+  schema_bronze:
+    description: "Schema for raw data (Bronze layer)"
+    default: "bronze"
+  schema_silver:
+    description: "Schema for cleaned data (Silver layer)"
+    default: "silver"
+  schema_gold:
+    description: "Schema for enriched data (Gold layer)"
+    default: "gold"
 
 # ------------------------------------------------------------------------------
 # TARGETS: Ambientes de deployment (dev, staging, prod)
@@ -100,6 +107,9 @@ targets:
     default: true # Target padrão quando não especificado
     workspace:
       host: https://dbc-5fa38af7-00ad.cloud.databricks.com
+    # Dev usa catálogo sandbox para isolamento
+    variables:
+      catalog: sandbox
 
   # ============================================================================
   # PROD (Produção)
@@ -109,6 +119,7 @@ targets:
   #   - Sem prefixos nos nomes dos recursos
   #   - Schedules e triggers ATIVOS
   #   - root_path fixo para garantir apenas uma cópia
+  #   - Catálogo dedicado: nasa_gcn
   prod:
     mode: production # Modo produção (sem prefixos, triggers ativos)
     workspace:
@@ -119,3 +130,13 @@ targets:
     permissions:
       - user_name: dltreinamentos.data@gmail.com
         level: CAN_MANAGE # Níveis: CAN_VIEW, CAN_RUN, CAN_MANAGE
+    # Prod usa catálogo dedicado nasa_gcn
+    variables:
+      catalog: nasa_gcn
+    # Override do schedule para 11 AM em prod (teste)
+    resources:
+      jobs:
+        nasa_gcn_job:
+          schedule:
+            quartz_cron_expression: "0 0 11 * * ?"
+            timezone_id: "America/Sao_Paulo"
