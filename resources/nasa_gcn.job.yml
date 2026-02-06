@@ -22,19 +22,17 @@ resources:
       name: nasa_gcn_job
 
       # ------------------------------------------------------------------------
-      # TRIGGER: Quando o job deve executar
+      # SCHEDULE: Agendamento do job
       # ------------------------------------------------------------------------
-      # Opções de trigger:
-      #   - periodic: Execução periódica (diária, horária, etc.)
-      #   - cron: Expressão cron para agendamento preciso
-      #   - file_arrival: Quando novos arquivos chegam em um path
+      # Executa todos os dias às 8:00 AM (horário de Brasília).
+      # Expressão cron: minuto hora dia mês dia_da_semana
+      #   0 8 * * * = às 08:00, todos os dias
       #
-      # O trigger periódico garante exatamente 1 dia entre execuções,
-      # diferente de um cron que sempre executa no mesmo horário.
-      trigger:
-        periodic:
-          interval: 1 # Intervalo entre execuções
-          unit: DAYS # Unidade: HOURS, DAYS, WEEKS
+      # Referência: https://docs.databricks.com/jobs.html#schedule
+      schedule:
+        quartz_cron_expression: "0 0 8 * * ?"  # 8:00 AM diariamente
+        timezone_id: "America/Sao_Paulo"        # Horário de Brasília
+        pause_status: UNPAUSED                  # Ativo (PAUSED para desativar)
 
       # Notificações por email (descomentando, envia email quando job falha)
       #email_notifications:
