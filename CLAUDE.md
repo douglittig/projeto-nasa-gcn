@@ -1,147 +1,168 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este arquivo fornece orientações ao Claude Code (claude.ai/code) para trabalhar com código neste repositório.
 
-## Project Overview
+## Visão Geral do Projeto
 
-NASA GCN (Gamma-ray Coordinates Network) Data Pipeline using Databricks Asset Bundles and Delta Live Tables. Ingests real-time astronomical alerts from NASA's Kafka stream through a medallion architecture (Bronze -> Silver -> Gold).
+Pipeline de dados da NASA GCN (Gamma-ray Coordinates Network) usando Databricks Asset Bundles e Lakeflow Declarative Pipelines. Ingere alertas astronômicos em tempo real do stream Kafka da NASA através de uma arquitetura medallion (Bronze -> Silver -> Gold).
 
-**Stack:** Databricks Asset Bundles, Delta Live Tables (DLT), PySpark, NASA GCN Kafka, `uv` package manager.
+**Stack:** Databricks Asset Bundles, Lakeflow Declarative Pipelines (DLT), PySpark, NASA GCN Kafka, gerenciador de pacotes `uv`.
 
-## Common Commands
+## Comandos Comuns
 
 ```bash
-# Install dependencies
+# Instalar dependências
 uv sync --dev
 
-# Run all tests
+# Executar todos os testes
 pytest
 
-# Run single test
+# Executar teste específico
 pytest tests/test_utils.py::test_decode_utf8 -v
 
-# Run tests with coverage
+# Executar testes com cobertura
 pytest --cov=nasa_gcn --cov-report=term-missing
 
-# Lint and fix
+# Lint e correção automática
 ruff check src/ tests/ --fix
 
-# Format code
+# Formatar código
 ruff format src/ tests/
 
-# Type checking
+# Verificação de tipos
 mypy src/
 
-# Validate bundle configuration
+# Validar configuração do bundle
 databricks bundle validate
 
-# Deploy and run (loads credentials from .env automatically)
+# Deploy e execução (carrega credenciais do .env automaticamente)
 ./deploy.sh run
 
-# Deploy only
+# Apenas deploy
 ./deploy.sh
 
-# Run job without deploying
+# Executar job sem fazer novo deploy
 ./deploy.sh run-only
 
-# Deploy to production
+# Deploy para produção
 TARGET=prod ./deploy.sh run
 ```
 
-## Architecture
+## Arquitetura
+
+O pipeline usa uma **arquitetura medallion com 3 pipelines** DLT separados:
 
 ```
 NASA GCN Kafka Stream
-        |
-        v
-+------------------+
-|   Bronze Layer   |  gcn_raw (all raw messages)
-+--------+---------+
-         |
-         v
-+------------------+
-|   Silver Layer   |  7 topic-specific tables:
-|                  |  gcn_classic_text, gcn_classic_voevent,
-|                  |  gcn_classic_binary, gcn_notices,
-|                  |  gcn_circulars, igwn_gwalert, gcn_heartbeat
-+--------+---------+
-         |
-         v
-+------------------+
-|    Gold Layer    |  gcn_events_summarized (enriched events)
-+------------------+
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  PIPELINE BRONZE (bronze_pipeline.py)                       │
+│  └─ gcn_raw: Todas as mensagens brutas do Kafka             │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  PIPELINE SILVER (silver_pipeline.py)                       │
+│  ├─ gcn_circulars      (relatórios escritos por humanos)    │
+│  ├─ gcn_notices        (alertas JSON gerados por máquina)   │
+│  ├─ gcn_classic_text   (formato texto legado)               │
+│  ├─ gcn_classic_voevent (XML VOEvent)                       │
+│  ├─ gcn_classic_binary  (pacotes binários parseados)        │
+│  ├─ gcn_gwalert        (ondas gravitacionais)               │
+│  └─ gcn_heartbeat      (saúde do sistema)                   │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  PIPELINE GOLD (gold_pipeline.py)                           │
+│  ├─ gcn_events_summary (narrativas de eventos enriquecidas) │
+│  └─ gcn_daily_stats    (agregações diárias)                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Critical Constraints
+**Orquestração do Job:** `nasa_gcn.job.yml` executa os pipelines sequencialmente: `validate → bronze → silver → gold → report`
 
-### Binary Parser Duplication (IMPORTANT)
+## Restrições Críticas
 
-`dlt_pipeline.py` contains **duplicated binary parser logic** (lines 56-167) that must stay in sync with `binary_parser.py`.
+### Parser Binário Embutido no Pipeline Silver
 
-**Why:** Databricks serverless DLT cannot reliably import custom modules on Spark executors. The parser must be inlined.
+`silver_pipeline.py` contém **lógica do parser binário embutida** (linhas 61-196) que deve permanecer sincronizada com `binary_parser.py`.
 
-**When modifying binary parser:**
-1. Update `binary_parser.py` (source of truth)
-2. Manually sync changes to `dlt_pipeline.py:56-167`
-3. Keep `PACKET_TYPE_NAMES` dict in sync
+**Por quê:** O DLT serverless do Databricks não consegue importar módulos customizados de forma confiável nos executores Spark. UDFs requerem que todo código esteja inline.
 
-### DLT-Specific Gotchas
+**Ao modificar o parser binário:**
+1. Atualize `binary_parser.py` (fonte da verdade)
+2. Sincronize manualmente as mudanças para `silver_pipeline.py:61-196`
+3. Mantenha o dict `PACKET_TYPE_NAMES` sincronizado
 
-- `spark` is a **global variable** in DLT context - it's not imported, but available at runtime
-- UDFs in DLT cannot import from sibling modules on executors - all code must be inlined in the UDF file
-- `dlt.read_stream()` reads from other DLT tables, `spark.readStream` reads external sources
+### Pegadinhas do DLT
 
-### Credentials Management
+- `spark` é uma **variável global** no contexto DLT - não é importada, mas está disponível em runtime
+- UDFs no DLT não conseguem importar de módulos irmãos nos executores - todo código deve estar inline no arquivo da UDF
+- Pipelines Silver/Gold usam `spark.readStream.table()` para ler de tabelas de outros pipelines (não `dlt.read_stream()`)
+- Cada pipeline tem sua própria configuração de catalog/schema via `spark.conf.get()`
 
-Databricks Community Edition does **not** support Secrets API. Credentials are stored in `.env` (gitignored):
+### Gerenciamento de Credenciais
+
+O Databricks Community Edition **não** suporta a API de Secrets. Credenciais são armazenadas em `.env` (ignorado pelo git):
 
 ```bash
-# Preferred: Base64-encoded
+# Preferido: Codificado em Base64
 GCN_CLIENT_ID_B64=...
 GCN_CLIENT_SECRET_B64=...
 
-# Fallback: Plain-text
+# Alternativa: Texto puro
 GCN_CLIENT_ID=...
 GCN_CLIENT_SECRET=...
 ```
 
-Use `python scripts/encode_credentials.py` to encode credentials. `deploy.sh` auto-detects and decodes Base64.
+Use `python scripts/encode_credentials.py` para codificar credenciais. O `deploy.sh` detecta e decodifica Base64 automaticamente.
 
-### Unity Catalog Schema
+### Schema do Unity Catalog
 
-- Catalog: `sandbox`
-- Schema: `nasa_gcn_${bundle.target}` (e.g., `nasa_gcn_dev`, `nasa_gcn_prod`)
+- Dev: `sandbox.bronze`, `sandbox.silver`, `sandbox.gold`
+- Prod: `nasa_gcn.bronze`, `nasa_gcn.silver`, `nasa_gcn.gold`
 
-## Development Workflow
+## Fluxo de Desenvolvimento
 
-### Adding New GCN Topic
+### Adicionando Novo Tópico GCN
 
-1. Add schema in `src/nasa_gcn/schemas.py`
-2. Add `@dlt.table` definition in `src/nasa_gcn/dlt_pipeline.py`
-3. Update `TABLES_TO_CHECK` in `main.py` if needed
+1. Adicione o schema em `src/nasa_gcn/schemas.py` (se necessário)
+2. Adicione definição `@dlt.table` em `src/nasa_gcn/pipelines/silver_pipeline.py`
+3. Atualize o padrão de filtro para corresponder ao novo tópico
 
-### Known Issues
+### Adicionando Nova Agregação Gold
 
-- **Failing test:** `tests/main_test.py::test_get_logger` - logger handler assertion fails
-- **Slow counts:** `main.py` uses `.count()` on large tables (3M+ rows) - consider DLT event log
-- **Generic exceptions:** `config.py:45-46` and `binary_parser.py:369-372` swallow errors silently
+1. Adicione definição `@dlt.table` em `src/nasa_gcn/pipelines/gold_pipeline.py`
+2. Referencie tabelas Silver via `spark.read.table()`
 
-See `TECHNICAL_DEBT.md` for full issue tracking and sprint planning.
+### Problemas Conhecidos
 
-## Key Files
+- **Teste falhando:** `tests/main_test.py::test_get_logger` - asserção de handler do logger falha
+- **Contagens lentas:** `main.py` usa `.count()` em tabelas grandes (3M+ linhas) - considerar event log do DLT
+- **Exceções genéricas:** `config.py:45-46` e `binary_parser.py:369-372` engolem erros silenciosamente
 
-| File | Purpose |
-|------|---------|
-| `src/nasa_gcn/dlt_pipeline.py` | Main DLT pipeline (Bronze → Silver → Gold) |
-| `src/nasa_gcn/binary_parser.py` | GCN binary packet decoder (source of truth) |
-| `src/nasa_gcn/schemas.py` | PySpark schemas for all GCN topics |
-| `src/nasa_gcn/config.py` | Kafka and credential configuration |
-| `src/nasa_gcn/main.py` | Pipeline status report and metrics |
-| `deploy.sh` | Deployment script with credential handling |
-| `databricks.yml` | Asset bundle configuration |
+Veja `TECHNICAL_DEBT.md` para rastreamento completo de issues e planejamento de sprints.
 
-## Documentation
+## Arquivos Principais
 
-- `docs/GCN_*.md` - RAG context documentation for each GCN topic
-- `docs/GOLD_LAYER.md` - Gold layer enrichment logic
-- `docs/TRILHA_ESTUDOS_30_DIAS.md` - 30-day study track for Databricks GenAI certification
+| Arquivo | Propósito |
+|---------|-----------|
+| `src/nasa_gcn/pipelines/bronze_pipeline.py` | Bronze: Ingestão Kafka para `gcn_raw` |
+| `src/nasa_gcn/pipelines/silver_pipeline.py` | Silver: Parsing por tópico (7 tabelas) |
+| `src/nasa_gcn/pipelines/gold_pipeline.py` | Gold: Agregações e enriquecimentos |
+| `src/nasa_gcn/binary_parser.py` | Decodificador de pacotes binários GCN (fonte da verdade) |
+| `src/nasa_gcn/schemas.py` | Schemas PySpark para todos os tópicos GCN |
+| `src/nasa_gcn/config.py` | Configuração do Kafka e credenciais |
+| `src/nasa_gcn/main.py` | Relatório de status e métricas do pipeline |
+| `deploy.sh` | Script de deploy com tratamento de credenciais |
+| `databricks.yml` | Configuração do asset bundle |
+| `resources/nasa_gcn.job.yml` | Orquestração do job (DAG de pipelines) |
+| `resources/pipelines/*.yml` | Configurações individuais dos pipelines |
+
+## Documentação
+
+- `docs/GCN_*_RAG.md` - Documentação de contexto RAG para cada tópico GCN
+- `docs/GOLD_LAYER.md` - Lógica de enriquecimento da camada Gold
+- `TECHNICAL_DEBT.md` - Rastreamento de issues e planejamento de sprints
