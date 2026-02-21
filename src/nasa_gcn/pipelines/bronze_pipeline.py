@@ -49,6 +49,10 @@ except ImportError:
     name="gcn_raw",
     comment="Raw messages from NASA GCN Kafka stream - all topics combined",
     cluster_by=["topic", "kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 def raw():
     """
