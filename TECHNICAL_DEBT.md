@@ -15,7 +15,7 @@
 | **9** | **Performance - Queries de Count** | 🟡 Baixa | 🟢 Baixa | Lento em tabelas grandes (3M+ linhas) | 1 |
 | **10** | **Limites de Versão de Dependências** | 🟡 Baixa | 🟢 Baixa | Risco de breaking changes | 1 |
 | ~~**11**~~ | ~~**SDP Auto-Optimize**~~ | ✅ | ✅ | ~~Small files no Bronze~~ | ✅ |
-| **12** | **Expectations de Qualidade de Dados** | 🟠 Média | 🟡 Média | Dados ruins silenciosos no Silver | 2 |
+| ~~**12**~~ | ~~**Expectations de Qualidade de Dados**~~ | ✅ | ✅ | ~~Dados ruins silenciosos no Silver~~ | ✅ |
 | **13** | **Auto-geração de Documentação** | 🟡 Baixa | 🟡 Média | Overhead de manutenção manual | Backlog |
 
 ---
@@ -36,7 +36,7 @@ Foco: Testes e tratamento de erros
 - **#3** - Aumentar cobertura de testes (pipelines SDP, config)
 - **#4** - Melhorar tratamento de erros
 - **#8** - Tornar valores hardcoded configuráveis
-- **#12** - Adicionar Data Quality Expectations nas tabelas Silver
+- ~~**#12** - Adicionar Data Quality Expectations nas tabelas Silver~~ ✅
 
 ### 🏃 Sprint 3: Arquitetura & DevOps (3 semanas)
 Foco: Melhorias estruturais
@@ -48,8 +48,8 @@ Foco: Melhorias estruturais
 ### 📦 Backlog: Melhorias Futuras
 - **#6** - Migração para Vector Store em produção
 - **#13** - Auto-geração de documentação
-- Change Data Feed para CDC downstream (quando necessário)
-- CLUSTER BY AUTO para camada Gold (avaliar padrões de query primeiro)
+- ~~Change Data Feed para CDC downstream~~ ✅ (implementado em Gold)
+- ~~CLUSTER BY AUTO para camada Gold~~ ❌ (não suportado para `@dp.materialized_view` no Python API)
 
 ---
 
@@ -197,25 +197,6 @@ Foco: Melhorias estruturais
   ```
 - **Esforço**: 15 minutos
 
-### 12. Data Quality Expectations (Silver) 🟠 [NOVO]
-- **Problema**: Tabelas Silver não têm validação de qualidade de dados
-- **Localização**: `silver_pipeline.py` (todas as 7 tabelas)
-- **Impacto**: Dados ruins fluem pelo pipeline silenciosamente
-- **Solução**: Adicionar decoradores `@dp.expect_or_drop`
-  ```python
-  @dp.table(name="gcn_circulars", cluster_by=["event_id", "created_on"])
-  @dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
-  @dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
-  def circulars():
-      ...
-  ```
-- **Tabelas para adicionar expectations**:
-  - `gcn_circulars` - validar `circular_id`, `event_id`
-  - `gcn_notices` - validar `notice_id`
-  - `gcn_classic_binary` - validar `parse_error IS NULL`
-  - `gcn_gwalert` - validar `event_id`
-- **Esforço**: 1-2 horas
-
 ### 13. Auto-geração de Documentação 🟡
 - **Problema**: Docs escritos manualmente em `docs/*.md`
 - **Solução**: Auto-gerar a partir de metadados do SDP
@@ -227,6 +208,26 @@ Foco: Melhorias estruturais
 ---
 
 ## Itens Resolvidos (✅ Concluídos)
+
+### Data Quality Expectations no Silver (2026-02-21)
+- **Ação**: Adicionados decoradores `@dp.expect_or_drop` nas tabelas Silver para validação de dados
+- **Mudanças**:
+  - `gcn_circulars`: valid_circular_id, valid_event_id
+  - `gcn_notices`: valid_notice_id
+  - `gcn_classic_binary`: valid_parse (parse_error IS NULL)
+  - `gcn_gwalert`: valid_event_id
+- **Arquivo Modificado**: `silver_pipeline.py`
+- **Benefício**: Dados inválidos são descartados automaticamente, garantindo qualidade no Silver
+- **Status**: ✅ Implementado & Deployado
+
+### Change Data Feed no Gold (2026-02-21)
+- **Ação**: Habilitado Change Data Feed nas materialized views Gold para suporte a CDC downstream
+- **Mudanças**:
+  - Adicionado `delta.enableChangeDataFeed: "true"` em `gcn_events_summary`
+  - Adicionado `delta.enableChangeDataFeed: "true"` em `gcn_daily_stats`
+- **Arquivo Modificado**: `gold_pipeline.py`
+- **Benefício**: Permite rastreamento eficiente de mudanças para consumidores downstream
+- **Status**: ✅ Implementado & Deployado
 
 ### SDP Auto-Optimize no Bronze (2026-02-21)
 - **Ação**: Adicionadas table properties `delta.autoOptimize` na tabela Bronze `gcn_raw`
@@ -322,9 +323,10 @@ Foco: Melhorias estruturais
 - Total de Código: ~1.500 linhas Python (3 arquivos de pipeline)
 - Cobertura de Testes: ~7.3%
 - Testes: 19 total (18 passando, 1 falhando)
-- Itens Pendentes: 12
+- Itens Pendentes: 10
 - Itens Críticos: 2
 - Itens Sprint 1: 3 (estimativa 1 semana)
+- Itens Sprint 2: 3 (estimativa 2 semanas)
 
 **Estado Alvo (Pós Sprint 3):**
 - Cobertura de Testes: >60%

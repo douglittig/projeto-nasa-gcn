@@ -320,6 +320,8 @@ BRONZE_TABLE = f"{BRONZE_CATALOG}.{BRONZE_SCHEMA}.gcn_raw"
     comment="GCN Circulars - Human-written astronomical reports",
     cluster_by=["event_id", "created_on"],
 )
+@dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
+@dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
 def circulars():
     """Scientific circulars from astronomers about transient events."""
     return (
@@ -348,6 +350,7 @@ def circulars():
     comment="GCN Notices - Machine-generated alerts in JSON format",
     cluster_by=["topic", "kafka_timestamp"],
 )
+@dp.expect_or_drop("valid_notice_id", "notice_id IS NOT NULL")
 def notices():
     """Automated notices from various missions (Fermi, Swift, etc.)."""
     return (
@@ -420,6 +423,7 @@ def classic_voevent():
     comment="GCN Classic Binary - Parsed binary packet alerts",
     cluster_by=["pkt_type", "kafka_timestamp"],
 )
+@dp.expect_or_drop("valid_parse", "parse_error IS NULL")
 def classic_binary():
     """Binary-format alerts with parsed coordinates and metadata."""
     return (
@@ -441,6 +445,7 @@ def classic_binary():
     comment="IGWN Gravitational Wave Alerts",
     cluster_by=["event_id", "kafka_timestamp"],
 )
+@dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
 def gwalert():
     """Gravitational wave alerts from LIGO/Virgo/KAGRA."""
     return (

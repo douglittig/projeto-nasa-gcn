@@ -36,6 +36,9 @@ SILVER_SCHEMA = spark.conf.get("silver_schema", "silver")
 @dp.materialized_view(
     name="gcn_events_summary",
     comment="Consolidated astronomical events with scientific narratives",
+    table_properties={
+        "delta.enableChangeDataFeed": "true",
+    },
 )
 def events_summary():
     """
@@ -73,6 +76,9 @@ def events_summary():
 @dp.materialized_view(
     name="gcn_daily_stats",
     comment="Daily statistics of GCN activity",
+    table_properties={
+        "delta.enableChangeDataFeed": "true",
+    },
 )
 def daily_stats():
     """
