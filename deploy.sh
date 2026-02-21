@@ -93,11 +93,11 @@ case "${1:-deploy}" in
         echo "✅ Deploy concluído!"
         echo ""
         echo "🏃 Executando job..."
-        databricks bundle run nasa_gcn_job -p "$PROFILE"
+        databricks bundle run nasa_gcn_job -t "$TARGET" -p "$PROFILE"
         ;;
     run-only)
         echo "🏃 Executando job..."
-        databricks bundle run nasa_gcn_job -p "$PROFILE"
+        databricks bundle run nasa_gcn_job -t "$TARGET" -p "$PROFILE"
         ;;
     *)
         echo "Uso: $0 [deploy|run|run-only]"
