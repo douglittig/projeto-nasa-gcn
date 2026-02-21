@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Este arquivo fornece orientações ao Claude Code (claude.ai/code) para trabalhar com código neste repositório.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Visão Geral do Projeto
 
@@ -151,6 +151,31 @@ NASA GCN Kafka Stream
 - Pipelines Silver/Gold usam `spark.readStream.table()` para ler de tabelas de outros pipelines
 - Cada pipeline tem sua própria configuração de catalog/schema via `spark.conf.get()`
 - Usar `from pyspark import pipelines as dp` (não `import dlt`)
+- **`cluster_by` não é suportado** em `@dp.materialized_view()` no Python API - usar apenas em `@dp.table()`
+
+### Configurações SDP Implementadas
+
+**Auto-Optimize (Bronze + Silver):**
+```python
+table_properties={
+    "delta.autoOptimize.optimizeWrite": "true",
+    "delta.autoOptimize.autoCompact": "true",
+}
+```
+
+**Data Quality Expectations (Silver):**
+```python
+@dp.expect_or_drop("valid_id", "id IS NOT NULL")
+```
+- `gcn_circulars`: valid_circular_id, valid_event_id
+- `gcn_notices`: valid_notice_id
+- `gcn_classic_binary`: valid_parse (parse_error IS NULL)
+- `gcn_gwalert`: valid_event_id
+
+**Change Data Feed (Gold):**
+```python
+table_properties={"delta.enableChangeDataFeed": "true"}
+```
 
 ### Gerenciamento de Credenciais
 
