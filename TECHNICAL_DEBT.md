@@ -6,16 +6,16 @@
 |:--:|:-----|:-----------:|:----------:|:-------|:------:|
 | **1** | **Binary Parser Duplication** | 🔴 High | 🟠 Medium | Maintenance burden, consistency risk | 3 |
 | **2** | **Failing Test** | 🔴 High | 🟢 Low | CI broken, test reliability | 1 |
-| **3** | **Test Coverage** | 🟠 Medium | 🔴 High | Regression risk, no DLT/config tests | 2 |
+| **3** | **Test Coverage** | 🟠 Medium | 🔴 High | Regression risk, no SDP/config tests | 2 |
 | **4** | **Generic Error Handling** | 🟠 Medium | 🟡 Medium | Silent failures, debugging difficulty | 2 |
 | **5** | **CI/CD Implementation** | 🟠 Medium | 🟡 Medium | Manual process, human error | 3 |
 | **6** | **Vector Store Integration** | 🟠 Medium | 🔴 High | RAG scalability bottleneck | Backlog |
 | **7** | **Streaming Configuration** | 🟠 Medium | 🟡 Medium | Data loss risk, no checkpoints | 3 |
 | **8** | **Hardcoded Values** | 🟡 Low | 🟢 Low | Testing/staging difficulty | 2 |
 | **9** | **Performance - Count Queries** | 🟡 Low | 🟢 Low | Slow on large tables (3M+ rows) | 1 |
-| **10** | **Linting/MyPy Errors** | 🟡 Low | 🟢 Low | Code quality, type safety | 1 |
-| **11** | **Dependency Version Bounds** | 🟡 Low | 🟢 Low | Breaking changes risk | 1 |
-| **12** | **DLT Table Boilerplate** | 🟡 Low | 🟡 Medium | Code duplication, maintenance | Backlog |
+| **10** | **Dependency Version Bounds** | 🟡 Low | 🟢 Low | Breaking changes risk | 1 |
+| **11** | **SDP Auto-Optimize** | 🟡 Low | 🟢 Low | Small files in Bronze | 1 |
+| **12** | **Data Quality Expectations** | 🟠 Medium | 🟡 Medium | Silent bad data in Silver | 2 |
 | **13** | **Documentation Auto-gen** | 🟡 Low | 🟡 Medium | Manual maintenance overhead | Backlog |
 
 ---
@@ -26,16 +26,17 @@
 Focus: Low-hanging fruit, immediate impact
 
 - **#2** - Fix failing test (test_get_logger)
-- **#10** - Fix linting/mypy errors
 - **#9** - Optimize count queries
-- **#11** - Add dependency upper bounds
+- **#10** - Add dependency upper bounds
+- **#11** - Add Auto-Optimize table properties to Bronze
 
 ### 🏃 Sprint 2: Quality & Reliability (2 weeks)
 Focus: Testing and error handling
 
-- **#3** - Increase test coverage (DLT pipeline, config)
+- **#3** - Increase test coverage (SDP pipelines, config)
 - **#4** - Improve error handling
 - **#8** - Make hardcoded values configurable
+- **#12** - Add Data Quality Expectations to Silver tables
 
 ### 🏃 Sprint 3: Architecture & DevOps (3 weeks)
 Focus: Structural improvements
@@ -46,19 +47,20 @@ Focus: Structural improvements
 
 ### 📦 Backlog: Future Improvements
 - **#6** - Vector Store production migration
-- **#12** - Refactor DLT boilerplate
 - **#13** - Documentation auto-generation
+- Change Data Feed for downstream CDC (when needed)
+- CLUSTER BY AUTO for Gold layer (evaluate query patterns first)
 
 ---
 
 ## Pending Items (Details)
 
 ### 1. Binary Parser Duplication 🔴
-- **Issue**: Binary parser logic duplicated in `binary_parser.py` and `dlt_pipeline.py`
-  - `binary_parser.py:203-374` (original)
-  - `dlt_pipeline.py:102-167` (copy)
+- **Issue**: Binary parser logic duplicated in `binary_parser.py` and `silver_pipeline.py`
+  - `binary_parser.py:203-374` (original, source of truth)
+  - `silver_pipeline.py:61-196` (copy for UDF compatibility)
   - `PACKET_TYPE_NAMES` dict (196 entries) duplicated
-- **Root Cause**: Databricks serverless environment has package distribution limitations
+- **Root Cause**: Databricks SDP serverless environment cannot import sibling modules in UDF executors
 - **Impact**:
   - Bug fixes must be applied in two places
   - Risk of inconsistency
@@ -68,8 +70,8 @@ Focus: Structural improvements
   - **Option B**: Build-time code injection script
   - **Option C**: Spark UDF with `.addPyFile()` (may not work in serverless)
 - **Recommendation**: Implement build-time injection (Option B)
-  - Create `scripts/build_dlt.py` that injects parser code
-  - Run before deploy: `python scripts/build_dlt.py && databricks bundle deploy`
+  - Create `scripts/build_pipeline.py` that injects parser code
+  - Run before deploy: `python scripts/build_pipeline.py && databricks bundle deploy`
   - Maintains single source of truth
 - **Effort**: 4-6 hours
 
@@ -84,12 +86,12 @@ Focus: Structural improvements
 
 ### 3. Test Coverage 🟠
 - **Issue**: Insufficient test coverage (~7.3%)
-  - Zero tests for `dlt_pipeline.py` (13 KB, complex logic)
-  - Zero tests for `config.py` (3.6 KB, credential logic)
+  - Zero tests for SDP pipelines (`bronze_pipeline.py`, `silver_pipeline.py`, `gold_pipeline.py`)
+  - Zero tests for `config.py` (credential logic)
   - Only utility functions tested in `main.py`
-- **Impact**: High regression risk, especially in DLT pipeline
+- **Impact**: High regression risk, especially in pipeline transformations
 - **Solution**:
-  - Add DLT pipeline tests with Spark mocks
+  - Add SDP pipeline tests with Spark mocks
   - Add config tests with environment variable mocking
   - Test main functions (get_pipeline_stats, get_dlt_metrics)
 - **Target Coverage**: >60%
@@ -150,7 +152,7 @@ Focus: Structural improvements
 - **Note**: Requires paid Databricks workspace
 
 ### 7. Streaming Configuration 🟠
-- **Issue**: `failOnDataLoss: "false"` in `dlt_pipeline.py:108`
+- **Issue**: `failOnDataLoss: "false"` in Kafka config
 - **Impact**: Accepts data loss silently
 - **Solution**:
   - Enable checkpoints for exactly-once semantics
@@ -173,26 +175,18 @@ Focus: Structural improvements
 ### 9. Performance - Count Queries 🟡
 - **Issue**: `main.py:134` uses `.count()` which scans entire table
 - **Impact**: Slow for large tables (3M+ rows in gcn_raw)
-- **Solution**: Use `DESCRIBE EXTENDED` for metadata or query history
+- **Solution**: Use `DESCRIBE EXTENDED` for metadata or SDP event log
   ```python
   # Instead of:
   count = spark.table(full_name).count()
 
   # Use:
   stats = spark.sql(f"DESCRIBE EXTENDED {full_name}").collect()
-  # Or use DLT event log for row counts
+  # Or use SDP event log for row counts
   ```
 - **Effort**: 30 minutes
 
-### 10. Linting/MyPy Errors 🟡
-- **Issue**: Outstanding linting errors
-  - `dlt_pipeline.py:195`: `spark` undefined (mypy F821)
-  - `dlt_pipeline.py:69`: Line length > 100 chars
-  - `utils.py:6`: Unused `sys` import
-- **Solution**: Fix all errors, configure pre-commit hooks
-- **Effort**: 30 minutes
-
-### 11. Dependency Version Bounds 🟡
+### 10. Dependency Version Bounds 🟡
 - **Issue**: Dependencies without upper bounds
   - `python-dotenv>=1.0.0` (no upper bound)
   - `mypy`, `ruff` unpinned
@@ -203,34 +197,80 @@ Focus: Structural improvements
   ```
 - **Effort**: 15 minutes
 
-### 12. DLT Table Boilerplate 🟡
-- **Issue**: 7 nearly identical table definitions (`dlt_pipeline.py:192-319`)
-- **Pattern**: read → filter → decode → select
-- **Solution**: Factory function or parametrization
+### 11. SDP Auto-Optimize (Bronze) 🟡 [NEW]
+- **Issue**: Bronze pipeline lacks `delta.autoOptimize` table properties
+- **Location**: `bronze_pipeline.py:48-52`
+- **Impact**: Small files accumulation with high-frequency Kafka ingestion
+- **Solution**: Add table properties
   ```python
-  def create_topic_table(topic_name: str, filter_pattern: str):
-      @dlt.table(name=f"gcn_{topic_name}")
-      def table():
-          return (
-              dlt.read_stream("gcn_raw")
-              .filter(F.col("topic").rlike(filter_pattern))
-              .select(...)
-          )
-      return table
+  @dp.table(
+      name="gcn_raw",
+      cluster_by=["topic", "kafka_timestamp"],
+      table_properties={
+          "delta.autoOptimize.optimizeWrite": "true",
+          "delta.autoOptimize.autoCompact": "true",
+      },
+  )
   ```
-- **Effort**: 2-3 hours
+- **Benefit**: Reduces small files automatically, improves read performance
+- **Effort**: 15 minutes
+
+### 12. Data Quality Expectations (Silver) 🟠 [NEW]
+- **Issue**: Silver tables have no data quality validation
+- **Location**: `silver_pipeline.py` (all 7 tables)
+- **Impact**: Bad data flows through pipeline silently
+- **Solution**: Add `@dp.expect_or_drop` decorators
+  ```python
+  @dp.table(name="gcn_circulars", cluster_by=["event_id", "created_on"])
+  @dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
+  @dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
+  def circulars():
+      ...
+  ```
+- **Tables to add expectations**:
+  - `gcn_circulars` - validate `circular_id`, `event_id`
+  - `gcn_notices` - validate `notice_id`
+  - `gcn_classic_binary` - validate `parse_error IS NULL`
+  - `gcn_gwalert` - validate `event_id`
+- **Effort**: 1-2 hours
 
 ### 13. Documentation Auto-generation 🟡
 - **Issue**: Docs manually written in `docs/*.md`
-- **Solution**: Auto-generate from DLT metadata
+- **Solution**: Auto-generate from SDP metadata
   - Schema documentation from table metadata
-  - Data lineage from DLT DAG
+  - Data lineage from SDP DAG
 - **Effort**: 1 week
-- **Tools**: Consider `dbt docs`, custom scripts
+- **Tools**: Consider custom scripts, SDP event log
 
 ---
 
 ## Resolved Items (✅ Completed)
+
+### DLT to SDP Migration (2026-02-21)
+- **Action**: Migrated all pipelines from Delta Live Tables (DLT) to Spark Declarative Pipelines (SDP)
+- **Changes**:
+  - Changed `import dlt` to `from pyspark import pipelines as dp`
+  - Updated decorators from `@dlt.table` to `@dp.table` and `@dp.materialized_view`
+  - Changed `dlt.read_stream()` to `spark.readStream.table()`
+  - Added Liquid Clustering (`cluster_by`) to all tables
+  - Added `per-file-ignores` in `pyproject.toml` for `spark` global variable
+  - Removed legacy `dlt_pipeline.py` (341-line monolithic file)
+- **Files Modified**:
+  - `bronze_pipeline.py` - Kafka ingestion
+  - `silver_pipeline.py` - Topic parsing (7 tables)
+  - `gold_pipeline.py` - Aggregations (2 materialized views)
+  - `pyproject.toml` - Ruff configuration
+- **Status**: ✅ Implemented & Deployed
+
+### Linting/MyPy Errors Fixed (2026-02-21)
+- **Action**: Fixed F821 errors for `spark` undefined variable
+- **Solution**: Added per-file-ignores in pyproject.toml for pipeline files
+- **Status**: ✅ Implemented
+
+### DLT Table Boilerplate Eliminated (2026-02-21)
+- **Action**: Removed monolithic `dlt_pipeline.py` during SDP migration
+- **Note**: Each layer now has its own focused pipeline file
+- **Status**: ✅ Resolved by architecture change
 
 ### Base64 Credentials Encoding (2026-01-30)
 - **Action**: Implemented Base64 encoding for NASA GCN credentials to provide basic obfuscation in Databricks Community Edition.
@@ -247,26 +287,25 @@ Focus: Structural improvements
 - **Status**: ✅ Implemented
 
 ### Dynamic Configuration in `main.py`
-- **Action**: Updated `databricks.yml` to define `catalog` and `schema` variables. Configured `nasa_gcn.job.yml` and `nasa_gcn.pipeline.yml` to use these variables. Refactored `src/nasa_gcn/main.py` to accept `--catalog` and `--schema` via command line arguments using `argparse`.
+- **Action**: Updated `databricks.yml` to define `catalog` and `schema` variables. Configured `nasa_gcn.job.yml` and pipeline configs to use these variables. Refactored `src/nasa_gcn/main.py` to accept `--catalog` and `--schema` via command line arguments using `argparse`.
 - **Status**: ✅ Implemented
 
 ### Observability & Logging
 - **Action**: Implemented a central logging utility in `src/nasa_gcn/utils.py`. Replaced `print()` and `warnings.warn()` with structured logging (`logger.error`, `logger.warning`, `logger.info`) in `main.py` and `config.py`.
 - **Status**: ✅ Implemented
 
-### DLT Pipeline Refactoring (DRY & Data Integrity)
-- **Action**: Refactored `src/nasa_gcn/dlt_pipeline.py` to import and use modularized logic from `binary_parser.py`, `utils.py`, `schemas.py`, and `config.py`. Eliminated code duplication and ensured the production pipeline uses the full binary parser.
-- **Note**: Binary parser still duplicated due to serverless limitations (see #1 above)
+### SDP Pipeline Modularization (DRY & Data Integrity)
+- **Action**: Refactored pipelines to use modularized logic from `binary_parser.py`, `utils.py`, `schemas.py`, and `config.py`. Eliminated code duplication where possible.
+- **Note**: Binary parser still duplicated in `silver_pipeline.py` due to serverless UDF limitations (see #1 above)
 - **Status**: ✅ Implemented (with known limitation)
 
 ### Convert DLT Pipeline to Python File
-- **Action**: Converted `src/pipeline.ipynb` to `src/nasa_gcn/dlt_pipeline.py`. Updated `resources/nasa_gcn.pipeline.yml` to point to the new Python file. Used `ruff` to ensure code quality.
+- **Action**: Converted `src/pipeline.ipynb` to Python files. Now structured as `bronze_pipeline.py`, `silver_pipeline.py`, `gold_pipeline.py`.
 - **Status**: ✅ Implemented
 
 ### Code Quality & Linting
 - **Action**: Added `ruff` to `dev` dependencies in `pyproject.toml` and configured line length (100) and target version (py310). Fixed existing linting errors in `src/nasa_gcn` and `tests`.
-- **Note**: Some errors remain (see #10 above)
-- **Status**: ✅ Mostly Implemented
+- **Status**: ✅ Implemented
 
 ### Refactor `pipeline.ipynb` into Modules
 - **Action**: Created `src/nasa_gcn` package with `utils.py`, `schemas.py`, and `binary_parser.py`.
@@ -281,7 +320,7 @@ Focus: Structural improvements
 - **Status**: ✅ Implemented
 
 ### Advanced Enrichment (Gold Layer)
-- **Action**: Created `gcn_events_summarized` table joining Notices and Circulars.
+- **Action**: Created `gcn_events_summary` and `gcn_daily_stats` materialized views joining Silver tables.
 - **Status**: ✅ Implemented
 
 ---
@@ -289,7 +328,7 @@ Focus: Structural improvements
 ## Metrics
 
 **Current State:**
-- Total Code: ~1,378 lines Python
+- Total Code: ~1,500 lines Python (3 pipeline files)
 - Test Coverage: ~7.3%
 - Tests: 19 total (18 passing, 1 failing)
 - Pending Items: 13
@@ -302,8 +341,9 @@ Focus: Structural improvements
 - Critical Items: 0
 - CI/CD: Automated
 - Code Quality: All linting passing
+- Data Quality: Expectations on all Silver tables
 
 ---
 
-**Last Updated**: 2026-01-30
+**Last Updated**: 2026-02-21
 **Next Review**: After Sprint 1 completion
