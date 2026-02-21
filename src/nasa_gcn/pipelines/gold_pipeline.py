@@ -6,15 +6,18 @@ from Silver layer tables.
 
 Source: nasa_gcn.silver.*
 Target: nasa_gcn.gold.*
+
+Migrated from DLT to Spark Declarative Pipelines (SDP) - February 2026
 """
 
-import dlt
+from pyspark import pipelines as dp
 from pyspark.sql.functions import (
     col,
     collect_list,
     concat_ws,
     count,
     current_timestamp,
+    date_trunc,
     max,
 )
 
@@ -29,9 +32,10 @@ SILVER_SCHEMA = spark.conf.get("silver_schema", "silver")
 # GOLD TABLES
 # ==============================================================================
 
-@dlt.table(
+
+@dp.materialized_view(
     name="gcn_events_summary",
-    comment="Consolidated astronomical events with scientific narratives"
+    comment="Consolidated astronomical events with scientific narratives",
 )
 def events_summary():
     """
@@ -56,22 +60,19 @@ def events_summary():
         .filter(col("event_id").isNotNull())
     )
 
-    return (
-        agg_circs.join(gws, "event_id", "left")
-        .select(
-            "event_id",
-            "circular_count",
-            "last_updated",
-            "alert_type",
-            "scientific_narrative",
-            current_timestamp().alias("processed_at"),
-        )
+    return agg_circs.join(gws, "event_id", "left").select(
+        "event_id",
+        "circular_count",
+        "last_updated",
+        "alert_type",
+        "scientific_narrative",
+        current_timestamp().alias("processed_at"),
     )
 
 
-@dlt.table(
+@dp.materialized_view(
     name="gcn_daily_stats",
-    comment="Daily statistics of GCN activity"
+    comment="Daily statistics of GCN activity",
 )
 def daily_stats():
     """
@@ -82,8 +83,6 @@ def daily_stats():
     circulars_table = f"{SILVER_CATALOG}.{SILVER_SCHEMA}.gcn_circulars"
     notices_table = f"{SILVER_CATALOG}.{SILVER_SCHEMA}.gcn_notices"
     gwalert_table = f"{SILVER_CATALOG}.{SILVER_SCHEMA}.gcn_gwalert"
-
-    from pyspark.sql.functions import date_trunc, lit
 
     circs = (
         spark.read.table(circulars_table)

@@ -5,12 +5,14 @@ Ingests raw messages from NASA GCN Kafka stream into a single Bronze table.
 All messages are stored as-is for downstream processing.
 
 Target: nasa_gcn.bronze.raw
+
+Migrated from DLT to Spark Declarative Pipelines (SDP) - February 2026
 """
 
 import os
 import sys
 
-import dlt
+from pyspark import pipelines as dp
 from pyspark.sql.functions import col, current_timestamp
 
 # ==============================================================================
@@ -42,9 +44,11 @@ except ImportError:
 # BRONZE TABLE: Raw Kafka Messages
 # ==============================================================================
 
-@dlt.table(
+
+@dp.table(
     name="gcn_raw",
-    comment="Raw messages from NASA GCN Kafka stream - all topics combined"
+    comment="Raw messages from NASA GCN Kafka stream - all topics combined",
+    cluster_by=["topic", "kafka_timestamp"],
 )
 def raw():
     """
