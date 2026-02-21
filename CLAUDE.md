@@ -6,7 +6,55 @@ Este arquivo fornece orientações ao Claude Code (claude.ai/code) para trabalha
 
 Pipeline de dados da NASA GCN (Gamma-ray Coordinates Network) usando Databricks Asset Bundles e Lakeflow Declarative Pipelines. Ingere alertas astronômicos em tempo real do stream Kafka da NASA através de uma arquitetura medallion (Bronze -> Silver -> Gold).
 
-**Stack:** Databricks Asset Bundles, Lakeflow Declarative Pipelines (DLT), PySpark, NASA GCN Kafka, gerenciador de pacotes `uv`.
+**Stack:** Databricks Asset Bundles, Spark Declarative Pipelines (SDP), PySpark, NASA GCN Kafka, gerenciador de pacotes `uv`.
+
+## Protocolo de Trabalho
+
+**IMPORTANTE:** Antes de executar qualquer alteração no código, SEMPRE seguir este protocolo:
+
+### 1. Diálogo Inicial (OBRIGATÓRIO)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  USUÁRIO apresenta o problema/requisito                     │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  CLAUDE analisa e sugere abordagens                         │
+│  - Explica os trade-offs                                    │
+│  - Apresenta opções quando aplicável                        │
+│  - Identifica riscos ou dependências                        │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  USUÁRIO dá o OK para prosseguir                            │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  CLAUDE executa seguindo o dev-workflow                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2. Fluxo de Desenvolvimento (dev-workflow)
+
+Após o OK do usuário, seguir SEMPRE este fluxo:
+
+1. `git checkout -b feature/<nome>` - Criar branch
+2. Implementar as alterações
+3. `pytest tests/ -v` - Rodar testes unitários
+4. `./deploy.sh` - Deploy em dev
+5. `./deploy.sh run-only` - Executar e validar pipeline em dev
+6. `git commit` + `git push` - Commit e push
+7. `gh pr create` - Criar PR
+8. `gh pr merge --delete-branch` - Merge após aprovação
+9. (Opcional) `TARGET=prod ./deploy.sh` - Deploy em prod
+
+**Nunca fazer commit direto na main.** Todas as alterações passam por PR.
+
+Ver skill `/dev-workflow` para detalhes completos.
 
 ## Comandos Comuns
 
@@ -50,7 +98,7 @@ TARGET=prod ./deploy.sh run
 
 ## Arquitetura
 
-O pipeline usa uma **arquitetura medallion com 3 pipelines** DLT separados:
+O pipeline usa uma **arquitetura medallion com 3 pipelines** SDP (Spark Declarative Pipelines) separados:
 
 ```
 NASA GCN Kafka Stream
@@ -96,12 +144,13 @@ NASA GCN Kafka Stream
 2. Sincronize manualmente as mudanças para `silver_pipeline.py:61-196`
 3. Mantenha o dict `PACKET_TYPE_NAMES` sincronizado
 
-### Pegadinhas do DLT
+### Pegadinhas do SDP (Spark Declarative Pipelines)
 
-- `spark` é uma **variável global** no contexto DLT - não é importada, mas está disponível em runtime
-- UDFs no DLT não conseguem importar de módulos irmãos nos executores - todo código deve estar inline no arquivo da UDF
-- Pipelines Silver/Gold usam `spark.readStream.table()` para ler de tabelas de outros pipelines (não `dlt.read_stream()`)
+- `spark` é uma **variável global** no contexto SDP - não é importada, mas está disponível em runtime
+- UDFs no SDP não conseguem importar de módulos irmãos nos executores - todo código deve estar inline no arquivo da UDF
+- Pipelines Silver/Gold usam `spark.readStream.table()` para ler de tabelas de outros pipelines
 - Cada pipeline tem sua própria configuração de catalog/schema via `spark.conf.get()`
+- Usar `from pyspark import pipelines as dp` (não `import dlt`)
 
 ### Gerenciamento de Credenciais
 
@@ -129,18 +178,18 @@ Use `python scripts/encode_credentials.py` para codificar credenciais. O `deploy
 ### Adicionando Novo Tópico GCN
 
 1. Adicione o schema em `src/nasa_gcn/schemas.py` (se necessário)
-2. Adicione definição `@dlt.table` em `src/nasa_gcn/pipelines/silver_pipeline.py`
+2. Adicione definição `@dp.table` em `src/nasa_gcn/pipelines/silver_pipeline.py`
 3. Atualize o padrão de filtro para corresponder ao novo tópico
 
 ### Adicionando Nova Agregação Gold
 
-1. Adicione definição `@dlt.table` em `src/nasa_gcn/pipelines/gold_pipeline.py`
+1. Adicione definição `@dp.materialized_view` em `src/nasa_gcn/pipelines/gold_pipeline.py`
 2. Referencie tabelas Silver via `spark.read.table()`
 
 ### Problemas Conhecidos
 
 - **Teste falhando:** `tests/main_test.py::test_get_logger` - asserção de handler do logger falha
-- **Contagens lentas:** `main.py` usa `.count()` em tabelas grandes (3M+ linhas) - considerar event log do DLT
+- **Contagens lentas:** `main.py` usa `.count()` em tabelas grandes (3M+ linhas) - considerar event log do SDP
 - **Exceções genéricas:** `config.py:45-46` e `binary_parser.py:369-372` engolem erros silenciosamente
 
 Veja `TECHNICAL_DEBT.md` para rastreamento completo de issues e planejamento de sprints.
