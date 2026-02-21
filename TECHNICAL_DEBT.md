@@ -17,7 +17,7 @@
 | ~~**11**~~ | ~~**SDP Auto-Optimize**~~ | ✅ | ✅ | ~~Small files no Bronze~~ | ✅ |
 | ~~**12**~~ | ~~**Expectations de Qualidade de Dados**~~ | ✅ | ✅ | ~~Dados ruins silenciosos no Silver~~ | ✅ |
 | **13** | **Auto-geração de Documentação** | 🟡 Baixa | 🟡 Média | Overhead de manutenção manual | Backlog |
-| **14** | **Auto-Optimize no Silver** | 🟡 Baixa | 🟢 Baixa | Small files nas tabelas Silver | Backlog |
+| ~~**14**~~ | ~~**Auto-Optimize no Silver**~~ | ✅ | ✅ | ~~Small files nas tabelas Silver~~ | ✅ |
 
 ---
 
@@ -49,7 +49,7 @@ Foco: Melhorias estruturais
 ### 📦 Backlog: Melhorias Futuras
 - **#6** - Migração para Vector Store em produção
 - **#13** - Auto-geração de documentação
-- **#14** - Auto-Optimize nas tabelas Silver (mesmo padrão do Bronze)
+- ~~**#14** - Auto-Optimize nas tabelas Silver~~ ✅
 - ~~Change Data Feed para CDC downstream~~ ✅ (implementado em Gold)
 - ~~CLUSTER BY AUTO para camada Gold~~ ❌ (não suportado para `@dp.materialized_view` no Python API)
 
@@ -207,27 +207,19 @@ Foco: Melhorias estruturais
 - **Esforço**: 1 semana
 - **Ferramentas**: Considerar scripts customizados, event log do SDP
 
-### 14. Auto-Optimize no Silver 🟡
-- **Problema**: Tabelas Silver não têm Auto-Optimize configurado
-- **Localização**: `silver_pipeline.py` (7 tabelas)
-- **Impacto**: Possível acúmulo de small files em tabelas de streaming
-- **Solução**: Adicionar `table_properties` em todas as tabelas Silver
-  ```python
-  @dp.table(
-      name="gcn_circulars",
-      cluster_by=["event_id", "created_on"],
-      table_properties={
-          "delta.autoOptimize.optimizeWrite": "true",
-          "delta.autoOptimize.autoCompact": "true",
-      },
-  )
-  ```
-- **Tabelas**: gcn_circulars, gcn_notices, gcn_classic_text, gcn_classic_voevent, gcn_classic_binary, gcn_gwalert, gcn_heartbeat
-- **Esforço**: 30 minutos
-
 ---
 
 ## Itens Resolvidos (✅ Concluídos)
+
+### Auto-Optimize no Silver (2026-02-21)
+- **Ação**: Adicionadas table properties `delta.autoOptimize` em todas as 7 tabelas Silver
+- **Mudanças**:
+  - Adicionado `delta.autoOptimize.optimizeWrite: "true"` - otimiza tamanho dos arquivos durante escrita
+  - Adicionado `delta.autoOptimize.autoCompact: "true"` - compacta small files automaticamente
+- **Tabelas Modificadas**: gcn_circulars, gcn_notices, gcn_classic_text, gcn_classic_voevent, gcn_classic_binary, gcn_gwalert, gcn_heartbeat
+- **Arquivo Modificado**: `silver_pipeline.py`
+- **Benefício**: Reduz acúmulo de small files em todas as tabelas de streaming Silver
+- **Status**: ✅ Implementado & Deployado
 
 ### Data Quality Expectations no Silver (2026-02-21)
 - **Ação**: Adicionados decoradores `@dp.expect_or_drop` nas tabelas Silver para validação de dados
@@ -343,7 +335,7 @@ Foco: Melhorias estruturais
 - Total de Código: ~1.500 linhas Python (3 arquivos de pipeline)
 - Cobertura de Testes: ~7.3%
 - Testes: 19 total (18 passando, 1 falhando)
-- Itens Pendentes: 11
+- Itens Pendentes: 10
 - Itens Críticos: 2
 - Itens Sprint 1: 3 (estimativa 1 semana)
 - Itens Sprint 2: 3 (estimativa 2 semanas)

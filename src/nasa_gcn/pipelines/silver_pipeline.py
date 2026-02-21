@@ -319,6 +319,10 @@ BRONZE_TABLE = f"{BRONZE_CATALOG}.{BRONZE_SCHEMA}.gcn_raw"
     name="gcn_circulars",
     comment="GCN Circulars - Human-written astronomical reports",
     cluster_by=["event_id", "created_on"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 @dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
 @dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
@@ -349,6 +353,10 @@ def circulars():
     name="gcn_notices",
     comment="GCN Notices - Machine-generated alerts in JSON format",
     cluster_by=["topic", "kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 @dp.expect_or_drop("valid_notice_id", "notice_id IS NOT NULL")
 def notices():
@@ -374,6 +382,10 @@ def notices():
     name="gcn_classic_text",
     comment="GCN Classic Text - Legacy text-format alerts",
     cluster_by=["topic", "kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 def classic_text():
     """Legacy text-format alerts from classic GCN system."""
@@ -397,6 +409,10 @@ def classic_text():
     name="gcn_classic_voevent",
     comment="GCN Classic VOEvent - XML-format astronomical alerts",
     cluster_by=["topic", "kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 def classic_voevent():
     """VOEvent XML alerts following IVOA standard."""
@@ -422,6 +438,10 @@ def classic_voevent():
     name="gcn_classic_binary",
     comment="GCN Classic Binary - Parsed binary packet alerts",
     cluster_by=["pkt_type", "kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 @dp.expect_or_drop("valid_parse", "parse_error IS NULL")
 def classic_binary():
@@ -444,6 +464,10 @@ def classic_binary():
     name="gcn_gwalert",
     comment="IGWN Gravitational Wave Alerts",
     cluster_by=["event_id", "kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 @dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
 def gwalert():
@@ -467,6 +491,10 @@ def gwalert():
     name="gcn_heartbeat",
     comment="GCN Heartbeat - System health messages",
     cluster_by=["kafka_timestamp"],
+    table_properties={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true",
+    },
 )
 def heartbeat():
     """Heartbeat messages for monitoring Kafka connectivity."""
