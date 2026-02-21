@@ -14,7 +14,7 @@
 | **8** | **Valores Hardcoded** | 🟡 Baixa | 🟢 Baixa | Dificuldade de teste/staging | 2 |
 | **9** | **Performance - Queries de Count** | 🟡 Baixa | 🟢 Baixa | Lento em tabelas grandes (3M+ linhas) | 1 |
 | **10** | **Limites de Versão de Dependências** | 🟡 Baixa | 🟢 Baixa | Risco de breaking changes | 1 |
-| **11** | **SDP Auto-Optimize** | 🟡 Baixa | 🟢 Baixa | Small files no Bronze | 1 |
+| ~~**11**~~ | ~~**SDP Auto-Optimize**~~ | ✅ | ✅ | ~~Small files no Bronze~~ | ✅ |
 | **12** | **Expectations de Qualidade de Dados** | 🟠 Média | 🟡 Média | Dados ruins silenciosos no Silver | 2 |
 | **13** | **Auto-geração de Documentação** | 🟡 Baixa | 🟡 Média | Overhead de manutenção manual | Backlog |
 
@@ -28,7 +28,7 @@ Foco: Baixo esforço, alto impacto
 - **#2** - Corrigir teste falhando (test_get_logger)
 - **#9** - Otimizar queries de count
 - **#10** - Adicionar limites superiores de dependências
-- **#11** - Adicionar table properties Auto-Optimize no Bronze
+- ~~**#11** - Adicionar table properties Auto-Optimize no Bronze~~ ✅
 
 ### 🏃 Sprint 2: Qualidade & Confiabilidade (2 semanas)
 Foco: Testes e tratamento de erros
@@ -197,24 +197,6 @@ Foco: Melhorias estruturais
   ```
 - **Esforço**: 15 minutos
 
-### 11. SDP Auto-Optimize (Bronze) 🟡 [NOVO]
-- **Problema**: Pipeline Bronze não tem table properties `delta.autoOptimize`
-- **Localização**: `bronze_pipeline.py:48-52`
-- **Impacto**: Acúmulo de small files com ingestão Kafka de alta frequência
-- **Solução**: Adicionar table properties
-  ```python
-  @dp.table(
-      name="gcn_raw",
-      cluster_by=["topic", "kafka_timestamp"],
-      table_properties={
-          "delta.autoOptimize.optimizeWrite": "true",
-          "delta.autoOptimize.autoCompact": "true",
-      },
-  )
-  ```
-- **Benefício**: Reduz small files automaticamente, melhora performance de leitura
-- **Esforço**: 15 minutos
-
 ### 12. Data Quality Expectations (Silver) 🟠 [NOVO]
 - **Problema**: Tabelas Silver não têm validação de qualidade de dados
 - **Localização**: `silver_pipeline.py` (todas as 7 tabelas)
@@ -245,6 +227,15 @@ Foco: Melhorias estruturais
 ---
 
 ## Itens Resolvidos (✅ Concluídos)
+
+### SDP Auto-Optimize no Bronze (2026-02-21)
+- **Ação**: Adicionadas table properties `delta.autoOptimize` na tabela Bronze `gcn_raw`
+- **Mudanças**:
+  - Adicionado `delta.autoOptimize.optimizeWrite: "true"` - otimiza tamanho dos arquivos durante escrita
+  - Adicionado `delta.autoOptimize.autoCompact: "true"` - compacta small files automaticamente
+- **Arquivo Modificado**: `bronze_pipeline.py:48-56`
+- **Benefício**: Reduz acúmulo de small files da ingestão Kafka de alta frequência
+- **Status**: ✅ Implementado & Deployado
 
 ### Migração DLT para SDP (2026-02-21)
 - **Ação**: Migrou todos os pipelines de Delta Live Tables (DLT) para Spark Declarative Pipelines (SDP)
@@ -331,9 +322,9 @@ Foco: Melhorias estruturais
 - Total de Código: ~1.500 linhas Python (3 arquivos de pipeline)
 - Cobertura de Testes: ~7.3%
 - Testes: 19 total (18 passando, 1 falhando)
-- Itens Pendentes: 13
+- Itens Pendentes: 12
 - Itens Críticos: 2
-- Itens Sprint 1: 4 (estimativa 1 semana)
+- Itens Sprint 1: 3 (estimativa 1 semana)
 
 **Estado Alvo (Pós Sprint 3):**
 - Cobertura de Testes: >60%
