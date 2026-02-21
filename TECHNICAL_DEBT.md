@@ -1,207 +1,207 @@
-# Technical Debt & Improvements
+# Débito Técnico & Melhorias
 
-## Prioritization Matrix (Criticality vs. Complexity)
+## Matriz de Priorização (Criticidade vs. Complexidade)
 
-| ID | Item | Criticality | Complexity | Impact | Sprint |
+| ID | Item | Criticidade | Complexidade | Impacto | Sprint |
 |:--:|:-----|:-----------:|:----------:|:-------|:------:|
-| **1** | **Binary Parser Duplication** | 🔴 High | 🟠 Medium | Maintenance burden, consistency risk | 3 |
-| **2** | **Failing Test** | 🔴 High | 🟢 Low | CI broken, test reliability | 1 |
-| **3** | **Test Coverage** | 🟠 Medium | 🔴 High | Regression risk, no SDP/config tests | 2 |
-| **4** | **Generic Error Handling** | 🟠 Medium | 🟡 Medium | Silent failures, debugging difficulty | 2 |
-| **5** | **CI/CD Implementation** | 🟠 Medium | 🟡 Medium | Manual process, human error | 3 |
-| **6** | **Vector Store Integration** | 🟠 Medium | 🔴 High | RAG scalability bottleneck | Backlog |
-| **7** | **Streaming Configuration** | 🟠 Medium | 🟡 Medium | Data loss risk, no checkpoints | 3 |
-| **8** | **Hardcoded Values** | 🟡 Low | 🟢 Low | Testing/staging difficulty | 2 |
-| **9** | **Performance - Count Queries** | 🟡 Low | 🟢 Low | Slow on large tables (3M+ rows) | 1 |
-| **10** | **Dependency Version Bounds** | 🟡 Low | 🟢 Low | Breaking changes risk | 1 |
-| **11** | **SDP Auto-Optimize** | 🟡 Low | 🟢 Low | Small files in Bronze | 1 |
-| **12** | **Data Quality Expectations** | 🟠 Medium | 🟡 Medium | Silent bad data in Silver | 2 |
-| **13** | **Documentation Auto-gen** | 🟡 Low | 🟡 Medium | Manual maintenance overhead | Backlog |
+| **1** | **Duplicação do Parser Binário** | 🔴 Alta | 🟠 Média | Custo de manutenção, risco de inconsistência | 3 |
+| **2** | **Teste Falhando** | 🔴 Alta | 🟢 Baixa | CI quebrado, confiabilidade dos testes | 1 |
+| **3** | **Cobertura de Testes** | 🟠 Média | 🔴 Alta | Risco de regressão, sem testes SDP/config | 2 |
+| **4** | **Tratamento Genérico de Erros** | 🟠 Média | 🟡 Média | Falhas silenciosas, dificuldade de debug | 2 |
+| **5** | **Implementação CI/CD** | 🟠 Média | 🟡 Média | Processo manual, erro humano | 3 |
+| **6** | **Integração Vector Store** | 🟠 Média | 🔴 Alta | Gargalo de escalabilidade RAG | Backlog |
+| **7** | **Configuração de Streaming** | 🟠 Média | 🟡 Média | Risco de perda de dados, sem checkpoints | 3 |
+| **8** | **Valores Hardcoded** | 🟡 Baixa | 🟢 Baixa | Dificuldade de teste/staging | 2 |
+| **9** | **Performance - Queries de Count** | 🟡 Baixa | 🟢 Baixa | Lento em tabelas grandes (3M+ linhas) | 1 |
+| **10** | **Limites de Versão de Dependências** | 🟡 Baixa | 🟢 Baixa | Risco de breaking changes | 1 |
+| **11** | **SDP Auto-Optimize** | 🟡 Baixa | 🟢 Baixa | Small files no Bronze | 1 |
+| **12** | **Expectations de Qualidade de Dados** | 🟠 Média | 🟡 Média | Dados ruins silenciosos no Silver | 2 |
+| **13** | **Auto-geração de Documentação** | 🟡 Baixa | 🟡 Média | Overhead de manutenção manual | Backlog |
 
 ---
 
-## Sprint Planning
+## Planejamento de Sprints
 
-### 🏃 Sprint 1: Quick Wins (1 week)
-Focus: Low-hanging fruit, immediate impact
+### 🏃 Sprint 1: Vitórias Rápidas (1 semana)
+Foco: Baixo esforço, alto impacto
 
-- **#2** - Fix failing test (test_get_logger)
-- **#9** - Optimize count queries
-- **#10** - Add dependency upper bounds
-- **#11** - Add Auto-Optimize table properties to Bronze
+- **#2** - Corrigir teste falhando (test_get_logger)
+- **#9** - Otimizar queries de count
+- **#10** - Adicionar limites superiores de dependências
+- **#11** - Adicionar table properties Auto-Optimize no Bronze
 
-### 🏃 Sprint 2: Quality & Reliability (2 weeks)
-Focus: Testing and error handling
+### 🏃 Sprint 2: Qualidade & Confiabilidade (2 semanas)
+Foco: Testes e tratamento de erros
 
-- **#3** - Increase test coverage (SDP pipelines, config)
-- **#4** - Improve error handling
-- **#8** - Make hardcoded values configurable
-- **#12** - Add Data Quality Expectations to Silver tables
+- **#3** - Aumentar cobertura de testes (pipelines SDP, config)
+- **#4** - Melhorar tratamento de erros
+- **#8** - Tornar valores hardcoded configuráveis
+- **#12** - Adicionar Data Quality Expectations nas tabelas Silver
 
-### 🏃 Sprint 3: Architecture & DevOps (3 weeks)
-Focus: Structural improvements
+### 🏃 Sprint 3: Arquitetura & DevOps (3 semanas)
+Foco: Melhorias estruturais
 
-- **#1** - Resolve binary parser duplication
-- **#5** - Implement CI/CD
-- **#7** - Configure secure streaming
+- **#1** - Resolver duplicação do parser binário
+- **#5** - Implementar CI/CD
+- **#7** - Configurar streaming seguro
 
-### 📦 Backlog: Future Improvements
-- **#6** - Vector Store production migration
-- **#13** - Documentation auto-generation
-- Change Data Feed for downstream CDC (when needed)
-- CLUSTER BY AUTO for Gold layer (evaluate query patterns first)
+### 📦 Backlog: Melhorias Futuras
+- **#6** - Migração para Vector Store em produção
+- **#13** - Auto-geração de documentação
+- Change Data Feed para CDC downstream (quando necessário)
+- CLUSTER BY AUTO para camada Gold (avaliar padrões de query primeiro)
 
 ---
 
-## Pending Items (Details)
+## Itens Pendentes (Detalhes)
 
-### 1. Binary Parser Duplication 🔴
-- **Issue**: Binary parser logic duplicated in `binary_parser.py` and `silver_pipeline.py`
-  - `binary_parser.py:203-374` (original, source of truth)
-  - `silver_pipeline.py:61-196` (copy for UDF compatibility)
-  - `PACKET_TYPE_NAMES` dict (196 entries) duplicated
-- **Root Cause**: Databricks SDP serverless environment cannot import sibling modules in UDF executors
-- **Impact**:
-  - Bug fixes must be applied in two places
-  - Risk of inconsistency
-  - ~300 lines of duplicated code
-- **Solution Options**:
-  - **Option A (Current)**: Keep duplication, accept maintenance burden
-  - **Option B**: Build-time code injection script
-  - **Option C**: Spark UDF with `.addPyFile()` (may not work in serverless)
-- **Recommendation**: Implement build-time injection (Option B)
-  - Create `scripts/build_pipeline.py` that injects parser code
-  - Run before deploy: `python scripts/build_pipeline.py && databricks bundle deploy`
-  - Maintains single source of truth
-- **Effort**: 4-6 hours
+### 1. Duplicação do Parser Binário 🔴
+- **Problema**: Lógica do parser binário duplicada em `binary_parser.py` e `silver_pipeline.py`
+  - `binary_parser.py:203-374` (original, fonte da verdade)
+  - `silver_pipeline.py:61-196` (cópia para compatibilidade com UDF)
+  - Dict `PACKET_TYPE_NAMES` (196 entradas) duplicado
+- **Causa Raiz**: Ambiente serverless do SDP no Databricks não consegue importar módulos irmãos nos executores de UDF
+- **Impacto**:
+  - Correções de bugs devem ser aplicadas em dois lugares
+  - Risco de inconsistência
+  - ~300 linhas de código duplicado
+- **Opções de Solução**:
+  - **Opção A (Atual)**: Manter duplicação, aceitar custo de manutenção
+  - **Opção B**: Script de injeção de código em tempo de build
+  - **Opção C**: Spark UDF com `.addPyFile()` (pode não funcionar em serverless)
+- **Recomendação**: Implementar injeção em tempo de build (Opção B)
+  - Criar `scripts/build_pipeline.py` que injeta código do parser
+  - Executar antes do deploy: `python scripts/build_pipeline.py && databricks bundle deploy`
+  - Mantém fonte única da verdade
+- **Esforço**: 4-6 horas
 
-### 2. Failing Test 🔴
-- **Issue**: `tests/main_test.py::test_get_logger` fails
-- **Location**: `tests/main_test.py:test_get_logger`
-- **Error**: `assert len(logger.handlers) >= 1` fails (len is 0)
-- **Root Cause**: `get_logger()` sets level but doesn't add handler
-- **Impact**: CI broken, undermines test confidence
-- **Solution**: Either add StreamHandler in `get_logger()` or adjust test expectation
-- **Effort**: 15 minutes
+### 2. Teste Falhando 🔴
+- **Problema**: `tests/main_test.py::test_get_logger` falha
+- **Localização**: `tests/main_test.py:test_get_logger`
+- **Erro**: `assert len(logger.handlers) >= 1` falha (len é 0)
+- **Causa Raiz**: `get_logger()` define level mas não adiciona handler
+- **Impacto**: CI quebrado, prejudica confiança nos testes
+- **Solução**: Adicionar StreamHandler em `get_logger()` ou ajustar expectativa do teste
+- **Esforço**: 15 minutos
 
-### 3. Test Coverage 🟠
-- **Issue**: Insufficient test coverage (~7.3%)
-  - Zero tests for SDP pipelines (`bronze_pipeline.py`, `silver_pipeline.py`, `gold_pipeline.py`)
-  - Zero tests for `config.py` (credential logic)
-  - Only utility functions tested in `main.py`
-- **Impact**: High regression risk, especially in pipeline transformations
-- **Solution**:
-  - Add SDP pipeline tests with Spark mocks
-  - Add config tests with environment variable mocking
-  - Test main functions (get_pipeline_stats, get_dlt_metrics)
-- **Target Coverage**: >60%
-- **Effort**: 2-3 days
+### 3. Cobertura de Testes 🟠
+- **Problema**: Cobertura de testes insuficiente (~7.3%)
+  - Zero testes para pipelines SDP (`bronze_pipeline.py`, `silver_pipeline.py`, `gold_pipeline.py`)
+  - Zero testes para `config.py` (lógica de credenciais)
+  - Apenas funções utilitárias testadas em `main.py`
+- **Impacto**: Alto risco de regressão, especialmente em transformações de pipeline
+- **Solução**:
+  - Adicionar testes de pipeline SDP com mocks de Spark
+  - Adicionar testes de config com mocking de variáveis de ambiente
+  - Testar funções principais (get_pipeline_stats, get_dlt_metrics)
+- **Meta de Cobertura**: >60%
+- **Esforço**: 2-3 dias
 
-### 4. Generic Error Handling 🟠
-- **Issue**: Multiple instances of overly broad exception handling
-  - `config.py:45-46`: `except Exception: pass` (swallows all errors)
-  - `main.py:136-137`: Generic exception stored as string
-  - `binary_parser.py:369-372`: Catches all exceptions
-- **Impact**: Silent failures, difficult debugging
-- **Solution**:
-  - Use specific exception types
-  - Add proper logging at minimum
-  - Consider Result/Option patterns for parser
-- **Examples**:
+### 4. Tratamento Genérico de Erros 🟠
+- **Problema**: Múltiplas instâncias de tratamento de exceção muito amplo
+  - `config.py:45-46`: `except Exception: pass` (engole todos os erros)
+  - `main.py:136-137`: Exceção genérica armazenada como string
+  - `binary_parser.py:369-372`: Captura todas as exceções
+- **Impacto**: Falhas silenciosas, dificuldade de debugging
+- **Solução**:
+  - Usar tipos de exceção específicos
+  - Adicionar logging adequado no mínimo
+  - Considerar padrões Result/Option para o parser
+- **Exemplos**:
   ```python
-  # Bad
+  # Ruim
   try:
-      result = risky_operation()
+      result = operacao_arriscada()
   except Exception:
       pass
 
-  # Good
+  # Bom
   try:
-      result = risky_operation()
+      result = operacao_arriscada()
   except ConnectionError as e:
-      logger.error(f"Connection failed: {e}")
+      logger.error(f"Conexão falhou: {e}")
       raise
   except ValueError as e:
-      logger.warning(f"Invalid value: {e}")
-      return default_value
+      logger.warning(f"Valor inválido: {e}")
+      return valor_padrao
   ```
-- **Effort**: 4-6 hours
+- **Esforço**: 4-6 horas
 
-### 5. CI/CD Implementation 🟠
-- **Issue**: Deployment is manual via `deploy.sh`
-- **Impact**: Human error risk, no automated testing on PR
-- **Solution**: GitHub Actions workflow
+### 5. Implementação CI/CD 🟠
+- **Problema**: Deploy é manual via `deploy.sh`
+- **Impacto**: Risco de erro humano, sem testes automatizados em PR
+- **Solução**: Workflow GitHub Actions
   ```yaml
   # .github/workflows/ci.yml
-  - Run tests (pytest)
-  - Run linting (ruff)
-  - Run type checking (mypy)
-  - Deploy to dev on PR merge
-  - Deploy to prod on main merge
+  - Executar testes (pytest)
+  - Executar linting (ruff)
+  - Executar verificação de tipos (mypy)
+  - Deploy em dev ao fazer merge de PR
+  - Deploy em prod ao fazer merge na main
   ```
-- **Effort**: 1 day
+- **Esforço**: 1 dia
 
-### 6. Production Vector Store Integration 🟠
-- **Issue**: RAG uses basic Delta Table (`gcn_embeddings`)
-- **Impact**: Scalability bottleneck, manual index management
-- **Solution**: Migrate to Databricks Vector Search
-  - Managed indexing
-  - Low-latency retrieval
+### 6. Integração Vector Store em Produção 🟠
+- **Problema**: RAG usa Delta Table básica (`gcn_embeddings`)
+- **Impacto**: Gargalo de escalabilidade, gerenciamento manual de índice
+- **Solução**: Migrar para Databricks Vector Search
+  - Indexação gerenciada
+  - Recuperação de baixa latência
   - Auto-scaling
-- **Effort**: 1-2 weeks
-- **Note**: Requires paid Databricks workspace
+- **Esforço**: 1-2 semanas
+- **Nota**: Requer workspace Databricks pago
 
-### 7. Streaming Configuration 🟠
-- **Issue**: `failOnDataLoss: "false"` in Kafka config
-- **Impact**: Accepts data loss silently
-- **Solution**:
-  - Enable checkpoints for exactly-once semantics
-  - Set `failOnDataLoss: "true"`
-  - Use `startingOffsets: "latest"` for new runs
-- **Effort**: 2-3 hours
+### 7. Configuração de Streaming 🟠
+- **Problema**: `failOnDataLoss: "false"` na configuração Kafka
+- **Impacto**: Aceita perda de dados silenciosamente
+- **Solução**:
+  - Habilitar checkpoints para semântica exactly-once
+  - Definir `failOnDataLoss: "true"`
+  - Usar `startingOffsets: "latest"` para novas execuções
+- **Esforço**: 2-3 horas
 
-### 8. Hardcoded Values 🟡
-- **Issue**: Configuration values hardcoded in `config.py`
-  - Kafka broker: `kafka.gcn.nasa.gov:9092`
-  - OAuth endpoint: `https://auth.gcn.nasa.gov/oauth2/token`
-  - Topic patterns: Lines 71-78
-- **Impact**: Difficult to test, can't use staging/mock servers
-- **Solution**: Move to configuration variables
+### 8. Valores Hardcoded 🟡
+- **Problema**: Valores de configuração hardcoded em `config.py`
+  - Broker Kafka: `kafka.gcn.nasa.gov:9092`
+  - Endpoint OAuth: `https://auth.gcn.nasa.gov/oauth2/token`
+  - Padrões de tópicos: Linhas 71-78
+- **Impacto**: Difícil de testar, não pode usar servidores de staging/mock
+- **Solução**: Mover para variáveis de configuração
   ```python
   KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BROKER", "kafka.gcn.nasa.gov:9092")
   ```
-- **Effort**: 1-2 hours
+- **Esforço**: 1-2 horas
 
-### 9. Performance - Count Queries 🟡
-- **Issue**: `main.py:134` uses `.count()` which scans entire table
-- **Impact**: Slow for large tables (3M+ rows in gcn_raw)
-- **Solution**: Use `DESCRIBE EXTENDED` for metadata or SDP event log
+### 9. Performance - Queries de Count 🟡
+- **Problema**: `main.py:134` usa `.count()` que faz scan de toda a tabela
+- **Impacto**: Lento para tabelas grandes (3M+ linhas em gcn_raw)
+- **Solução**: Usar `DESCRIBE EXTENDED` para metadados ou event log do SDP
   ```python
-  # Instead of:
+  # Em vez de:
   count = spark.table(full_name).count()
 
-  # Use:
+  # Usar:
   stats = spark.sql(f"DESCRIBE EXTENDED {full_name}").collect()
-  # Or use SDP event log for row counts
+  # Ou usar event log do SDP para contagens de linhas
   ```
-- **Effort**: 30 minutes
+- **Esforço**: 30 minutos
 
-### 10. Dependency Version Bounds 🟡
-- **Issue**: Dependencies without upper bounds
-  - `python-dotenv>=1.0.0` (no upper bound)
-  - `mypy`, `ruff` unpinned
-- **Impact**: Breaking changes in future versions
-- **Solution**: Use `~=` operator
+### 10. Limites de Versão de Dependências 🟡
+- **Problema**: Dependências sem limites superiores
+  - `python-dotenv>=1.0.0` (sem limite superior)
+  - `mypy`, `ruff` sem versão fixa
+- **Impacto**: Risco de breaking changes em versões futuras
+- **Solução**: Usar operador `~=`
   ```toml
   python-dotenv = "~=1.0"  # >=1.0, <2.0
   ```
-- **Effort**: 15 minutes
+- **Esforço**: 15 minutos
 
-### 11. SDP Auto-Optimize (Bronze) 🟡 [NEW]
-- **Issue**: Bronze pipeline lacks `delta.autoOptimize` table properties
-- **Location**: `bronze_pipeline.py:48-52`
-- **Impact**: Small files accumulation with high-frequency Kafka ingestion
-- **Solution**: Add table properties
+### 11. SDP Auto-Optimize (Bronze) 🟡 [NOVO]
+- **Problema**: Pipeline Bronze não tem table properties `delta.autoOptimize`
+- **Localização**: `bronze_pipeline.py:48-52`
+- **Impacto**: Acúmulo de small files com ingestão Kafka de alta frequência
+- **Solução**: Adicionar table properties
   ```python
   @dp.table(
       name="gcn_raw",
@@ -212,14 +212,14 @@ Focus: Structural improvements
       },
   )
   ```
-- **Benefit**: Reduces small files automatically, improves read performance
-- **Effort**: 15 minutes
+- **Benefício**: Reduz small files automaticamente, melhora performance de leitura
+- **Esforço**: 15 minutos
 
-### 12. Data Quality Expectations (Silver) 🟠 [NEW]
-- **Issue**: Silver tables have no data quality validation
-- **Location**: `silver_pipeline.py` (all 7 tables)
-- **Impact**: Bad data flows through pipeline silently
-- **Solution**: Add `@dp.expect_or_drop` decorators
+### 12. Data Quality Expectations (Silver) 🟠 [NOVO]
+- **Problema**: Tabelas Silver não têm validação de qualidade de dados
+- **Localização**: `silver_pipeline.py` (todas as 7 tabelas)
+- **Impacto**: Dados ruins fluem pelo pipeline silenciosamente
+- **Solução**: Adicionar decoradores `@dp.expect_or_drop`
   ```python
   @dp.table(name="gcn_circulars", cluster_by=["event_id", "created_on"])
   @dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
@@ -227,123 +227,123 @@ Focus: Structural improvements
   def circulars():
       ...
   ```
-- **Tables to add expectations**:
-  - `gcn_circulars` - validate `circular_id`, `event_id`
-  - `gcn_notices` - validate `notice_id`
-  - `gcn_classic_binary` - validate `parse_error IS NULL`
-  - `gcn_gwalert` - validate `event_id`
-- **Effort**: 1-2 hours
+- **Tabelas para adicionar expectations**:
+  - `gcn_circulars` - validar `circular_id`, `event_id`
+  - `gcn_notices` - validar `notice_id`
+  - `gcn_classic_binary` - validar `parse_error IS NULL`
+  - `gcn_gwalert` - validar `event_id`
+- **Esforço**: 1-2 horas
 
-### 13. Documentation Auto-generation 🟡
-- **Issue**: Docs manually written in `docs/*.md`
-- **Solution**: Auto-generate from SDP metadata
-  - Schema documentation from table metadata
-  - Data lineage from SDP DAG
-- **Effort**: 1 week
-- **Tools**: Consider custom scripts, SDP event log
-
----
-
-## Resolved Items (✅ Completed)
-
-### DLT to SDP Migration (2026-02-21)
-- **Action**: Migrated all pipelines from Delta Live Tables (DLT) to Spark Declarative Pipelines (SDP)
-- **Changes**:
-  - Changed `import dlt` to `from pyspark import pipelines as dp`
-  - Updated decorators from `@dlt.table` to `@dp.table` and `@dp.materialized_view`
-  - Changed `dlt.read_stream()` to `spark.readStream.table()`
-  - Added Liquid Clustering (`cluster_by`) to all tables
-  - Added `per-file-ignores` in `pyproject.toml` for `spark` global variable
-  - Removed legacy `dlt_pipeline.py` (341-line monolithic file)
-- **Files Modified**:
-  - `bronze_pipeline.py` - Kafka ingestion
-  - `silver_pipeline.py` - Topic parsing (7 tables)
-  - `gold_pipeline.py` - Aggregations (2 materialized views)
-  - `pyproject.toml` - Ruff configuration
-- **Status**: ✅ Implemented & Deployed
-
-### Linting/MyPy Errors Fixed (2026-02-21)
-- **Action**: Fixed F821 errors for `spark` undefined variable
-- **Solution**: Added per-file-ignores in pyproject.toml for pipeline files
-- **Status**: ✅ Implemented
-
-### DLT Table Boilerplate Eliminated (2026-02-21)
-- **Action**: Removed monolithic `dlt_pipeline.py` during SDP migration
-- **Note**: Each layer now has its own focused pipeline file
-- **Status**: ✅ Resolved by architecture change
-
-### Base64 Credentials Encoding (2026-01-30)
-- **Action**: Implemented Base64 encoding for NASA GCN credentials to provide basic obfuscation in Databricks Community Edition.
-- **Changes**:
-  - Added `_decode_base64_credential()` function in `config.py`
-  - Updated `deploy.sh` to auto-detect and decode Base64 credentials
-  - Created helper script `scripts/encode_credentials.py`
-  - Added test suite `scripts/test_base64_credentials.py`
-  - Comprehensive security documentation in README
-- **Status**: ✅ Implemented & Tested
-
-### Type Hinting Coverage
-- **Action**: Completed type annotations in `main.py` and `utils.py`. Added `mypy` to dev dependencies and configured it in `pyproject.toml` to ensure strict type checking.
-- **Status**: ✅ Implemented
-
-### Dynamic Configuration in `main.py`
-- **Action**: Updated `databricks.yml` to define `catalog` and `schema` variables. Configured `nasa_gcn.job.yml` and pipeline configs to use these variables. Refactored `src/nasa_gcn/main.py` to accept `--catalog` and `--schema` via command line arguments using `argparse`.
-- **Status**: ✅ Implemented
-
-### Observability & Logging
-- **Action**: Implemented a central logging utility in `src/nasa_gcn/utils.py`. Replaced `print()` and `warnings.warn()` with structured logging (`logger.error`, `logger.warning`, `logger.info`) in `main.py` and `config.py`.
-- **Status**: ✅ Implemented
-
-### SDP Pipeline Modularization (DRY & Data Integrity)
-- **Action**: Refactored pipelines to use modularized logic from `binary_parser.py`, `utils.py`, `schemas.py`, and `config.py`. Eliminated code duplication where possible.
-- **Note**: Binary parser still duplicated in `silver_pipeline.py` due to serverless UDF limitations (see #1 above)
-- **Status**: ✅ Implemented (with known limitation)
-
-### Convert DLT Pipeline to Python File
-- **Action**: Converted `src/pipeline.ipynb` to Python files. Now structured as `bronze_pipeline.py`, `silver_pipeline.py`, `gold_pipeline.py`.
-- **Status**: ✅ Implemented
-
-### Code Quality & Linting
-- **Action**: Added `ruff` to `dev` dependencies in `pyproject.toml` and configured line length (100) and target version (py310). Fixed existing linting errors in `src/nasa_gcn` and `tests`.
-- **Status**: ✅ Implemented
-
-### Refactor `pipeline.ipynb` into Modules
-- **Action**: Created `src/nasa_gcn` package with `utils.py`, `schemas.py`, and `binary_parser.py`.
-- **Status**: ✅ Implemented
-
-### Redundant Logic
-- **Action**: Created `decode_utf8` and `clean_json_id` utility functions logic.
-- **Status**: ✅ Implemented
-
-### Hardcoded Schemas
-- **Action**: Centralized schemas in `src/nasa_gcn/schemas.py`.
-- **Status**: ✅ Implemented
-
-### Advanced Enrichment (Gold Layer)
-- **Action**: Created `gcn_events_summary` and `gcn_daily_stats` materialized views joining Silver tables.
-- **Status**: ✅ Implemented
+### 13. Auto-geração de Documentação 🟡
+- **Problema**: Docs escritos manualmente em `docs/*.md`
+- **Solução**: Auto-gerar a partir de metadados do SDP
+  - Documentação de schema a partir de metadados das tabelas
+  - Linhagem de dados a partir do DAG do SDP
+- **Esforço**: 1 semana
+- **Ferramentas**: Considerar scripts customizados, event log do SDP
 
 ---
 
-## Metrics
+## Itens Resolvidos (✅ Concluídos)
 
-**Current State:**
-- Total Code: ~1,500 lines Python (3 pipeline files)
-- Test Coverage: ~7.3%
-- Tests: 19 total (18 passing, 1 failing)
-- Pending Items: 13
-- Critical Items: 2
-- Sprint 1 Items: 4 (estimated 1 week)
+### Migração DLT para SDP (2026-02-21)
+- **Ação**: Migrou todos os pipelines de Delta Live Tables (DLT) para Spark Declarative Pipelines (SDP)
+- **Mudanças**:
+  - Alterado `import dlt` para `from pyspark import pipelines as dp`
+  - Atualizados decoradores de `@dlt.table` para `@dp.table` e `@dp.materialized_view`
+  - Alterado `dlt.read_stream()` para `spark.readStream.table()`
+  - Adicionado Liquid Clustering (`cluster_by`) em todas as tabelas
+  - Adicionado `per-file-ignores` no `pyproject.toml` para variável global `spark`
+  - Removido `dlt_pipeline.py` legado (arquivo monolítico de 341 linhas)
+- **Arquivos Modificados**:
+  - `bronze_pipeline.py` - Ingestão Kafka
+  - `silver_pipeline.py` - Parsing por tópico (7 tabelas)
+  - `gold_pipeline.py` - Agregações (2 materialized views)
+  - `pyproject.toml` - Configuração Ruff
+- **Status**: ✅ Implementado & Deployado
 
-**Target State (Post Sprint 3):**
-- Test Coverage: >60%
-- All Tests: Passing
-- Critical Items: 0
-- CI/CD: Automated
-- Code Quality: All linting passing
-- Data Quality: Expectations on all Silver tables
+### Erros de Linting/MyPy Corrigidos (2026-02-21)
+- **Ação**: Corrigidos erros F821 para variável `spark` indefinida
+- **Solução**: Adicionado per-file-ignores no pyproject.toml para arquivos de pipeline
+- **Status**: ✅ Implementado
+
+### Boilerplate DLT Eliminado (2026-02-21)
+- **Ação**: Removido `dlt_pipeline.py` monolítico durante migração SDP
+- **Nota**: Cada camada agora tem seu próprio arquivo de pipeline focado
+- **Status**: ✅ Resolvido por mudança de arquitetura
+
+### Codificação Base64 de Credenciais (2026-01-30)
+- **Ação**: Implementada codificação Base64 para credenciais NASA GCN para fornecer ofuscação básica no Databricks Community Edition.
+- **Mudanças**:
+  - Adicionada função `_decode_base64_credential()` em `config.py`
+  - Atualizado `deploy.sh` para auto-detectar e decodificar credenciais Base64
+  - Criado script auxiliar `scripts/encode_credentials.py`
+  - Adicionada suíte de testes `scripts/test_base64_credentials.py`
+  - Documentação de segurança abrangente no README
+- **Status**: ✅ Implementado & Testado
+
+### Cobertura de Type Hints
+- **Ação**: Completadas anotações de tipo em `main.py` e `utils.py`. Adicionado `mypy` às dependências de dev e configurado no `pyproject.toml` para garantir verificação estrita de tipos.
+- **Status**: ✅ Implementado
+
+### Configuração Dinâmica em `main.py`
+- **Ação**: Atualizado `databricks.yml` para definir variáveis `catalog` e `schema`. Configurados `nasa_gcn.job.yml` e configs de pipeline para usar essas variáveis. Refatorado `src/nasa_gcn/main.py` para aceitar `--catalog` e `--schema` via argumentos de linha de comando usando `argparse`.
+- **Status**: ✅ Implementado
+
+### Observabilidade & Logging
+- **Ação**: Implementado utilitário central de logging em `src/nasa_gcn/utils.py`. Substituídos `print()` e `warnings.warn()` por logging estruturado (`logger.error`, `logger.warning`, `logger.info`) em `main.py` e `config.py`.
+- **Status**: ✅ Implementado
+
+### Modularização do Pipeline SDP (DRY & Integridade de Dados)
+- **Ação**: Refatorados pipelines para usar lógica modularizada de `binary_parser.py`, `utils.py`, `schemas.py` e `config.py`. Eliminada duplicação de código onde possível.
+- **Nota**: Parser binário ainda duplicado em `silver_pipeline.py` devido a limitações de UDF serverless (ver #1 acima)
+- **Status**: ✅ Implementado (com limitação conhecida)
+
+### Converter Pipeline DLT para Arquivo Python
+- **Ação**: Convertido `src/pipeline.ipynb` para arquivos Python. Agora estruturado como `bronze_pipeline.py`, `silver_pipeline.py`, `gold_pipeline.py`.
+- **Status**: ✅ Implementado
+
+### Qualidade de Código & Linting
+- **Ação**: Adicionado `ruff` às dependências `dev` no `pyproject.toml` e configurado tamanho de linha (100) e versão alvo (py310). Corrigidos erros de linting existentes em `src/nasa_gcn` e `tests`.
+- **Status**: ✅ Implementado
+
+### Refatorar `pipeline.ipynb` em Módulos
+- **Ação**: Criado pacote `src/nasa_gcn` com `utils.py`, `schemas.py` e `binary_parser.py`.
+- **Status**: ✅ Implementado
+
+### Lógica Redundante
+- **Ação**: Criadas funções utilitárias `decode_utf8` e `clean_json_id`.
+- **Status**: ✅ Implementado
+
+### Schemas Hardcoded
+- **Ação**: Centralizados schemas em `src/nasa_gcn/schemas.py`.
+- **Status**: ✅ Implementado
+
+### Enriquecimento Avançado (Camada Gold)
+- **Ação**: Criadas materialized views `gcn_events_summary` e `gcn_daily_stats` fazendo join de tabelas Silver.
+- **Status**: ✅ Implementado
 
 ---
 
-**Last Updated**: 2026-02-21
-**Next Review**: After Sprint 1 completion
+## Métricas
+
+**Estado Atual:**
+- Total de Código: ~1.500 linhas Python (3 arquivos de pipeline)
+- Cobertura de Testes: ~7.3%
+- Testes: 19 total (18 passando, 1 falhando)
+- Itens Pendentes: 13
+- Itens Críticos: 2
+- Itens Sprint 1: 4 (estimativa 1 semana)
+
+**Estado Alvo (Pós Sprint 3):**
+- Cobertura de Testes: >60%
+- Todos os Testes: Passando
+- Itens Críticos: 0
+- CI/CD: Automatizado
+- Qualidade de Código: Todo linting passando
+- Qualidade de Dados: Expectations em todas as tabelas Silver
+
+---
+
+**Última Atualização**: 2026-02-21
+**Próxima Revisão**: Após conclusão da Sprint 1
