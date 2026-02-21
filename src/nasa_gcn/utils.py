@@ -3,7 +3,6 @@ Utility functions for NASA GCN Pipeline.
 """
 
 import logging
-import sys
 
 from pyspark.sql import Column
 from pyspark.sql.functions import col, decode, regexp_replace
