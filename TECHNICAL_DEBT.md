@@ -51,7 +51,7 @@ Foco: Melhorias estruturais
 - **#13** - Auto-geração de documentação
 - ~~**#14** - Auto-Optimize nas tabelas Silver~~ ✅
 - ~~Change Data Feed para CDC downstream~~ ✅ (implementado em Gold)
-- ~~CLUSTER BY AUTO para camada Gold~~ ❌ (não suportado para `@dp.materialized_view` no Python API)
+- ~~CLUSTER BY AUTO para camada Gold~~ ✅ (convertido para SQL)
 
 ---
 
@@ -211,6 +211,19 @@ Foco: Melhorias estruturais
 
 ## Itens Resolvidos (✅ Concluídos)
 
+### CLUSTER BY AUTO no Gold via SQL (2026-02-22)
+- **Ação**: Convertido Gold pipeline de Python para SQL para habilitar Liquid Clustering automático em materialized views
+- **Mudanças**:
+  - Criado `gold_pipeline.sql` com `CLUSTER BY AUTO` nas materialized views
+  - Atualizado `gold.pipeline.yml` para usar arquivo SQL
+  - Mantido `gold_pipeline.py` como referência (pode ser removido)
+- **Arquivos Modificados**:
+  - `src/nasa_gcn/pipelines/gold_pipeline.sql` (novo)
+  - `resources/pipelines/gold.pipeline.yml`
+- **Nota Técnica**: A sintaxe correta é `CLUSTER BY AUTO` (sem parênteses). Com parênteses `CLUSTER BY (AUTO)` o parser interpreta "AUTO" como nome de coluna.
+- **Benefício**: Databricks otimiza automaticamente as chaves de clustering baseado nos padrões de query
+- **Status**: ✅ Implementado & Deployado
+
 ### Auto-Optimize no Silver (2026-02-21)
 - **Ação**: Adicionadas table properties `delta.autoOptimize` em todas as 7 tabelas Silver
 - **Mudanças**:
@@ -350,5 +363,5 @@ Foco: Melhorias estruturais
 
 ---
 
-**Última Atualização**: 2026-02-21
+**Última Atualização**: 2026-02-22
 **Próxima Revisão**: Após conclusão da Sprint 1
