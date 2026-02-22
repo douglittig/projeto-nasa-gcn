@@ -123,7 +123,7 @@ NASA GCN Kafka Stream
          │
          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  PIPELINE GOLD (gold_pipeline.py)                           │
+│  PIPELINE GOLD (gold_pipeline.sql)                          │
 │  ├─ gcn_events_summary (narrativas de eventos enriquecidas) │
 │  └─ gcn_daily_stats    (agregações diárias)                 │
 └─────────────────────────────────────────────────────────────┘
@@ -151,7 +151,8 @@ NASA GCN Kafka Stream
 - Pipelines Silver/Gold usam `spark.readStream.table()` para ler de tabelas de outros pipelines
 - Cada pipeline tem sua própria configuração de catalog/schema via `spark.conf.get()`
 - Usar `from pyspark import pipelines as dp` (não `import dlt`)
-- **`cluster_by` não é suportado** em `@dp.materialized_view()` no Python API - usar apenas em `@dp.table()`
+- **`cluster_by` não é suportado** em `@dp.materialized_view()` no Python API - usar SQL com `CLUSTER BY AUTO` como alternativa
+- **Sintaxe `CLUSTER BY AUTO`**: Usar **sem parênteses** - `CLUSTER BY AUTO` (correto) vs `CLUSTER BY (AUTO)` (incorreto - interpreta AUTO como coluna)
 
 ### Configurações SDP Implementadas
 
@@ -208,8 +209,18 @@ Use `python scripts/encode_credentials.py` para codificar credenciais. O `deploy
 
 ### Adicionando Nova Agregação Gold
 
-1. Adicione definição `@dp.materialized_view` em `src/nasa_gcn/pipelines/gold_pipeline.py`
-2. Referencie tabelas Silver via `spark.read.table()`
+1. Adicione nova `MATERIALIZED VIEW` em `src/nasa_gcn/pipelines/gold_pipeline.sql`
+2. Use `CLUSTER BY AUTO` para otimização automática de layout
+3. Referencie tabelas Silver via `${silver_catalog}.${silver_schema}.table_name`
+
+```sql
+CREATE OR REPLACE MATERIALIZED VIEW nova_agregacao
+COMMENT 'Descrição da agregação'
+CLUSTER BY AUTO
+AS
+SELECT ...
+FROM `${silver_catalog}`.`${silver_schema}`.tabela_silver;
+```
 
 ### Problemas Conhecidos
 
@@ -225,7 +236,7 @@ Veja `TECHNICAL_DEBT.md` para rastreamento completo de issues e planejamento de 
 |---------|-----------|
 | `src/nasa_gcn/pipelines/bronze_pipeline.py` | Bronze: Ingestão Kafka para `gcn_raw` |
 | `src/nasa_gcn/pipelines/silver_pipeline.py` | Silver: Parsing por tópico (7 tabelas) |
-| `src/nasa_gcn/pipelines/gold_pipeline.py` | Gold: Agregações e enriquecimentos |
+| `src/nasa_gcn/pipelines/gold_pipeline.sql` | Gold: Agregações e enriquecimentos (SQL com CLUSTER BY AUTO) |
 | `src/nasa_gcn/binary_parser.py` | Decodificador de pacotes binários GCN (fonte da verdade) |
 | `src/nasa_gcn/schemas.py` | Schemas PySpark para todos os tópicos GCN |
 | `src/nasa_gcn/config.py` | Configuração do Kafka e credenciais |
