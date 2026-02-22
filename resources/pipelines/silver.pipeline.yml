@@ -32,3 +32,17 @@ resources:
         # Source catalog/schema for reading Bronze data
         bronze_catalog: ${var.catalog}
         bronze_schema: ${var.schema_bronze}
+
+      # Failure notifications (disabled in dev via target override)
+      notifications:
+        - email_recipients:
+            - ${var.notification_email}
+          alerts:
+            - on-update-failure
+            - on-update-fatal-failure
+            - on-flow-failure
+
+      # Resource tags for cost tracking and organization
+      tags:
+        project: nasa-gcn
+        layer: silver

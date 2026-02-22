@@ -31,3 +31,17 @@ resources:
         # NASA GCN Kafka credentials
         GCN_CLIENT_ID: ${var.gcn_client_id}
         GCN_CLIENT_SECRET: ${var.gcn_client_secret}
+
+      # Failure notifications (prod only - filtered out in dev by bundle)
+      notifications:
+        - email_recipients:
+            - ${var.notification_email}
+          alerts:
+            - on-update-failure
+            - on-update-fatal-failure
+            - on-flow-failure
+
+      # Resource tags for cost tracking and organization
+      tags:
+        project: nasa-gcn
+        layer: bronze
