@@ -59,6 +59,7 @@ sync:
     - src/*.py
     - src/nasa_gcn/*.py
     - src/nasa_gcn/pipelines/*.py
+    - src/nasa_gcn/pipelines/*.sql
     - dist/*.whl
     - demos/*.py
     - demos/*.ipynb

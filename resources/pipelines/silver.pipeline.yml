@@ -24,6 +24,8 @@ resources:
       libraries:
         - file:
             path: ../../src/nasa_gcn/pipelines/silver_pipeline.py
+        - file:
+            path: ../../src/nasa_gcn/pipelines/silver_gwalert_cdc.sql
 
       # Configuration passed to pipeline
       configuration:
