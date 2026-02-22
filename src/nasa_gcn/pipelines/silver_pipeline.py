@@ -460,31 +460,8 @@ def classic_binary():
     )
 
 
-@dp.table(
-    name="gcn_gwalert",
-    comment="IGWN Gravitational Wave Alerts",
-    cluster_by=["event_id", "kafka_timestamp"],
-    table_properties={
-        "delta.autoOptimize.optimizeWrite": "true",
-        "delta.autoOptimize.autoCompact": "true",
-    },
-)
-@dp.expect_or_drop("valid_event_id", "event_id IS NOT NULL")
-def gwalert():
-    """Gravitational wave alerts from LIGO/Virgo/KAGRA."""
-    return (
-        spark.readStream.table(BRONZE_TABLE)
-        .filter(col("topic") == "igwn.gwalert")
-        .withColumn("json", decode_utf8())
-        .select(
-            "message_key",
-            "json",
-            get_json_object("json", "$.superevent_id").alias("event_id"),
-            get_json_object("json", "$.alert_type").alias("alert_type"),
-            "kafka_timestamp",
-            current_timestamp().alias("processed_at"),
-        )
-    )
+# NOTE: gcn_gwalert table moved to silver_gwalert_cdc.sql
+# Uses AUTO CDC with SCD Type 2 for deduplication and history tracking
 
 
 @dp.table(
