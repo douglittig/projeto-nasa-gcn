@@ -86,6 +86,9 @@ variables:
   schema_gold:
     description: "Schema for enriched data (Gold layer)"
     default: "gold"
+  notification_email:
+    description: "Email for pipeline failure notifications (prod only)"
+    default: "dltreinamentos.data@gmail.com"
 
 # ------------------------------------------------------------------------------
 # TARGETS: Ambientes de deployment (dev, staging, prod)
@@ -110,6 +113,18 @@ targets:
     # Dev usa catálogo sandbox para isolamento
     variables:
       catalog: sandbox
+    # Override: development mode para iteração rápida
+    resources:
+      pipelines:
+        bronze_pipeline:
+          development: true
+          notifications: []
+        silver_pipeline:
+          development: true
+          notifications: []
+        gold_pipeline:
+          development: true
+          notifications: []
 
   # ============================================================================
   # PROD (Produção)
