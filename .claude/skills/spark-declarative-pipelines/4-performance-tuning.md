@@ -43,7 +43,7 @@ def bronze_events():
 ```sql
 -- Let Databricks choose based on query patterns
 CREATE OR REPLACE STREAMING TABLE bronze_events
-CLUSTER BY (AUTO)
+CLUSTER BY AUTO
 AS SELECT ...;
 ```
 
