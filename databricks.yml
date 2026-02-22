@@ -61,6 +61,7 @@ sync:
     - src/nasa_gcn/pipelines/*.py
     - dist/*.whl
     - demos/*.py
+    - demos/*.ipynb
 
 # ------------------------------------------------------------------------------
 # VARIABLES: Variáveis de configuração (credenciais, secrets)
