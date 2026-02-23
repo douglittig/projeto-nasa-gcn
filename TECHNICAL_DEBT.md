@@ -10,7 +10,7 @@
 | **4** | **Tratamento Genérico de Erros** | 🟠 Média | 🟡 Média | Falhas silenciosas, dificuldade de debug | 2 |
 | **5** | **Implementação CI/CD** | 🟠 Média | 🟡 Média | Processo manual, erro humano | 3 |
 | **6** | **Integração Vector Store** | 🟠 Média | 🔴 Alta | Gargalo de escalabilidade RAG | Backlog |
-| **7** | **Configuração de Streaming** | 🟠 Média | 🟡 Média | Risco de perda de dados, sem checkpoints | 3 |
+| ~~**7**~~ | ~~**Configuração de Streaming**~~ | ✅ | ✅ | ~~N/A - SDP gerencia checkpoints~~ | ✅ |
 | **8** | **Valores Hardcoded** | 🟡 Baixa | 🟢 Baixa | Dificuldade de teste/staging | 2 |
 | **9** | **Performance - Queries de Count** | 🟡 Baixa | 🟢 Baixa | Lento em tabelas grandes (3M+ linhas) | 1 |
 | **10** | **Limites de Versão de Dependências** | 🟡 Baixa | 🟢 Baixa | Risco de breaking changes | 1 |
@@ -44,7 +44,7 @@ Foco: Melhorias estruturais
 
 - **#1** - Resolver duplicação do parser binário
 - **#5** - Implementar CI/CD
-- **#7** - Configurar streaming seguro
+- ~~**#7** - Configurar streaming seguro~~ ✅ (N/A - SDP gerencia checkpoints)
 
 ### 📦 Backlog: Melhorias Futuras
 - **#6** - Migração para Vector Store em produção
@@ -153,15 +153,6 @@ Foco: Melhorias estruturais
 - **Esforço**: 1-2 semanas
 - **Nota**: Requer workspace Databricks pago
 
-### 7. Configuração de Streaming 🟠
-- **Problema**: `failOnDataLoss: "false"` na configuração Kafka
-- **Impacto**: Aceita perda de dados silenciosamente
-- **Solução**:
-  - Habilitar checkpoints para semântica exactly-once
-  - Definir `failOnDataLoss: "true"`
-  - Usar `startingOffsets: "latest"` para novas execuções
-- **Esforço**: 2-3 horas
-
 ### 8. Valores Hardcoded 🟡
 - **Problema**: Valores de configuração hardcoded em `config.py`
   - Broker Kafka: `kafka.gcn.nasa.gov:9092`
@@ -210,6 +201,14 @@ Foco: Melhorias estruturais
 ---
 
 ## Itens Resolvidos (✅ Concluídos)
+
+### Configuração de Streaming - Item Removido (2026-02-23)
+- **Ação**: Item #7 removido da matriz de priorização
+- **Motivo**: Não aplicável no contexto de Spark Declarative Pipelines (SDP)
+  - **Checkpoints**: Gerenciados automaticamente pelo SDP - transparente para o desenvolvedor
+  - **failOnDataLoss: "false"**: Aceitável em ambiente Free Edition/treinamento - se os offsets do Kafka expirarem, continua do `startingOffsets` configurado
+- **Nota**: O item foi criado antes da migração para SDP, quando checkpoints precisavam ser configurados manualmente
+- **Status**: ✅ Removido (N/A)
 
 ### Módulo Bootstrap para Free Edition (2026-02-23)
 - **Ação**: Extraído código de setup de path duplicado para módulo centralizado `_bootstrap.py`
@@ -363,7 +362,7 @@ Foco: Melhorias estruturais
 - Total de Código: ~1.500 linhas Python (3 arquivos de pipeline)
 - Cobertura de Testes: ~7.3%
 - Testes: 19 total (18 passando, 1 falhando)
-- Itens Pendentes: 10
+- Itens Pendentes: 9
 - Itens Críticos: 2
 - Itens Sprint 1: 3 (estimativa 1 semana)
 - Itens Sprint 2: 3 (estimativa 2 semanas)
