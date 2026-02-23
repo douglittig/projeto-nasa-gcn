@@ -10,11 +10,12 @@ Target: nasa_gcn.silver.*
 Migrated from DLT to Spark Declarative Pipelines (SDP) - February 2026
 """
 
-import os
 import struct
-import sys
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
+
+# Bootstrap: configure sys.path for Free Edition (see _bootstrap.py for details)
+import _bootstrap
 
 from pyspark import pipelines as dp
 from pyspark.sql.functions import (
@@ -30,24 +31,8 @@ from pyspark.sql.functions import (
     udf,
 )
 
-# ==============================================================================
-# DRIVER SETUP
-# ==============================================================================
-try:
-    # Add bundle.sourcePath to sys.path for imports
-    source_path = spark.conf.get("bundle.sourcePath", "")
-    if source_path and source_path not in sys.path:
-        sys.path.insert(0, source_path)
-
-    # Also add parent directories for local development
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(current_dir)  # nasa_gcn/
-    grandparent_dir = os.path.dirname(parent_dir)  # src/
-    for path in [parent_dir, grandparent_dir]:
-        if path not in sys.path:
-            sys.path.append(path)
-except Exception:
-    pass
+# Complete setup with spark session (spark is global in SDP context)
+_bootstrap.setup_environment(spark)  # noqa: F821
 
 try:
     from nasa_gcn.schemas import CIRCULAR_SCHEMA
