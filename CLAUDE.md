@@ -133,6 +133,29 @@ NASA GCN Kafka Stream
 
 ## Restrições Críticas
 
+### Bootstrap de Ambiente (Free Edition)
+
+Os pipelines usam `_bootstrap.py` para resolver imports no Free/Community Edition do Databricks.
+
+**Por quê:** O Free Edition não suporta wheels gerenciados ou repositórios Git com PYTHONPATH automático. O módulo centraliza a manipulação de `sys.path` que seria necessária em cada pipeline.
+
+**Como funciona:**
+```python
+# No pipeline (bronze_pipeline.py, silver_pipeline.py)
+import _bootstrap
+_bootstrap.setup_environment(spark)  # spark é global no contexto SDP
+```
+
+**Contraste Pedagógico - Free Edition vs Produção:**
+- **Free Edition (atual)**: Resolução de path em runtime via `sys.path.insert`
+- **Produção Real**: Construir Python Wheel (`.whl`) e declarar no `libraries` do YAML:
+  ```yaml
+  libraries:
+    - whl: /Volumes/catalog/schema/wheels/nasa_gcn-1.0.0-py3-none-any.whl
+  ```
+
+Ver `_bootstrap.py` para documentação completa sobre a arquitetura.
+
 ### Parser Binário Embutido no Pipeline Silver
 
 `silver_pipeline.py` contém **lógica do parser binário embutida** (linhas 61-196) que deve permanecer sincronizada com `binary_parser.py`.
@@ -234,6 +257,7 @@ Veja `TECHNICAL_DEBT.md` para rastreamento completo de issues e planejamento de 
 
 | Arquivo | Propósito |
 |---------|-----------|
+| `src/nasa_gcn/pipelines/_bootstrap.py` | Setup de ambiente (Free Edition workaround) |
 | `src/nasa_gcn/pipelines/bronze_pipeline.py` | Bronze: Ingestão Kafka para `gcn_raw` |
 | `src/nasa_gcn/pipelines/silver_pipeline.py` | Silver: Parsing por tópico (7 tabelas) |
 | `src/nasa_gcn/pipelines/gold_pipeline.sql` | Gold: Agregações e enriquecimentos (SQL com CLUSTER BY AUTO) |

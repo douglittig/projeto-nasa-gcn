@@ -211,6 +211,21 @@ Foco: Melhorias estruturais
 
 ## Itens Resolvidos (✅ Concluídos)
 
+### Módulo Bootstrap para Free Edition (2026-02-23)
+- **Ação**: Extraído código de setup de path duplicado para módulo centralizado `_bootstrap.py`
+- **Problema Original**: Bloco de `sys.path.insert` de ~25 linhas duplicado em cada pipeline, misturando infraestrutura com lógica de negócio
+- **Mudanças**:
+  - Criado `_bootstrap.py` com função `setup_environment(spark)` e documentação pedagógica
+  - Refatorado `bronze_pipeline.py`: removidas 23 linhas de boilerplate
+  - Refatorado `silver_pipeline.py`: removidas 25 linhas de boilerplate
+  - Adicionada documentação em CLAUDE.md sobre contraste Free Edition vs Produção
+- **Arquivos Modificados**:
+  - `src/nasa_gcn/pipelines/_bootstrap.py` (novo)
+  - `src/nasa_gcn/pipelines/bronze_pipeline.py`
+  - `src/nasa_gcn/pipelines/silver_pipeline.py`
+- **Benefício**: Separação de concerns, código DRY, valor pedagógico para treinamento
+- **Status**: ✅ Implementado & Deployado
+
 ### CLUSTER BY AUTO no Gold via SQL (2026-02-22)
 - **Ação**: Convertido Gold pipeline de Python para SQL para habilitar Liquid Clustering automático em materialized views
 - **Mudanças**:
@@ -363,5 +378,5 @@ Foco: Melhorias estruturais
 
 ---
 
-**Última Atualização**: 2026-02-22
+**Última Atualização**: 2026-02-23
 **Próxima Revisão**: Após conclusão da Sprint 1
