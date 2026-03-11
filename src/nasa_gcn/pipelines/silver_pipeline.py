@@ -16,7 +16,6 @@ from typing import Any, Dict, Optional
 
 # Bootstrap: configure sys.path for Free Edition (see _bootstrap.py for details)
 import _bootstrap
-
 from pyspark import pipelines as dp
 from pyspark.sql.functions import (
     coalesce,
@@ -307,6 +306,7 @@ BRONZE_TABLE = f"{BRONZE_CATALOG}.{BRONZE_SCHEMA}.gcn_raw"
     table_properties={
         "delta.autoOptimize.optimizeWrite": "true",
         "delta.autoOptimize.autoCompact": "true",
+        "delta.enableRowTracking": "true",
     },
 )
 @dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
@@ -341,6 +341,7 @@ def circulars():
     table_properties={
         "delta.autoOptimize.optimizeWrite": "true",
         "delta.autoOptimize.autoCompact": "true",
+        "delta.enableRowTracking": "true",
     },
 )
 @dp.expect_or_drop("valid_notice_id", "notice_id IS NOT NULL")

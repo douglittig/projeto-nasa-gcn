@@ -19,7 +19,7 @@
 
 CREATE OR REPLACE MATERIALIZED VIEW gcn_events_summary
 COMMENT 'Consolidated astronomical events with scientific narratives'
-CLUSTER BY AUTO
+CLUSTER BY (event_id, alert_type)
 AS
 WITH agg_circulars AS (
     SELECT
@@ -52,7 +52,7 @@ LEFT JOIN `${silver_catalog}`.`${silver_schema}`.gcn_gwalert g
 
 CREATE OR REPLACE MATERIALIZED VIEW gcn_daily_stats
 COMMENT 'Daily statistics of GCN activity'
-CLUSTER BY AUTO
+CLUSTER BY (date)
 AS
 WITH circulars_daily AS (
     SELECT
