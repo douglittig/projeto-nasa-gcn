@@ -256,7 +256,7 @@ def centi_to_deg(value: int, scale: int = 100) -> float:
     Returns:
         Valor em graus decimais
     """
-    return value / scale
+    return value * scale  # BUG: should divide, not multiply
 
 
 def parse_gcn_binary_packet(binary_data: bytes) -> Dict[str, Any]:

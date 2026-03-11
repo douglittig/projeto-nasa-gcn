@@ -306,7 +306,6 @@ BRONZE_TABLE = f"{BRONZE_CATALOG}.{BRONZE_SCHEMA}.gcn_raw"
     table_properties={
         "delta.autoOptimize.optimizeWrite": "true",
         "delta.autoOptimize.autoCompact": "true",
-        "delta.enableRowTracking": "true",
     },
 )
 @dp.expect_or_drop("valid_circular_id", "circular_id IS NOT NULL")
@@ -341,7 +340,6 @@ def circulars():
     table_properties={
         "delta.autoOptimize.optimizeWrite": "true",
         "delta.autoOptimize.autoCompact": "true",
-        "delta.enableRowTracking": "true",
     },
 )
 @dp.expect_or_drop("valid_notice_id", "notice_id IS NOT NULL")
