@@ -132,13 +132,22 @@ def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
 
 
 def get_table_count(catalog: str, schema: str, table: str) -> Union[int, str]:
-    """Retorna contagem de uma tabela via metadados Delta (sem full scan)."""
+    """Retorna contagem de uma tabela via metadados Delta (sem full scan).
+
+    DESCRIBE DETAIL é usado para Delta tables (streaming tables).
+    Materialized views são registradas como views no Unity Catalog e não
+    suportam DESCRIBE DETAIL — nesse caso, faz fallback para COUNT(*).
+    """
     full_name = f"`{catalog}`.`{schema}`.`{table}`"
     try:
         detail = spark.sql(f"DESCRIBE DETAIL {full_name}").collect()[0]
         return int(detail["numRows"]) if detail["numRows"] is not None else 0
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception:
+        # Fallback para views (materialized views) que não suportam DESCRIBE DETAIL
+        try:
+            return spark.sql(f"SELECT COUNT(*) FROM {full_name}").collect()[0][0]
+        except Exception as e:
+            return f"Error: {e}"
 
 
 def format_number(value: Any) -> str:
