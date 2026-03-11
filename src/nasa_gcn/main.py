@@ -132,10 +132,11 @@ def get_dlt_metrics(pipeline_id: str) -> Dict[str, int]:
 
 
 def get_table_count(catalog: str, schema: str, table: str) -> Union[int, str]:
-    """Retorna contagem de uma tabela ou mensagem de erro."""
-    full_name = f"{catalog}.{schema}.{table}"
+    """Retorna contagem de uma tabela via metadados Delta (sem full scan)."""
+    full_name = f"`{catalog}`.`{schema}`.`{table}`"
     try:
-        return spark.table(full_name).count()
+        detail = spark.sql(f"DESCRIBE DETAIL {full_name}").collect()[0]
+        return int(detail["numRows"]) if detail["numRows"] is not None else 0
     except Exception as e:
         return f"Error: {e}"
 
@@ -190,7 +191,9 @@ def main() -> None:
     print("=" * 60)
     print("NASA GCN Pipeline - Status Report")
     print(f"Catalog: {args.catalog}")
-    print(f"Schemas: bronze={schemas['bronze']}, silver={schemas['silver']}, gold={schemas['gold']}")
+    print(
+        f"Schemas: bronze={schemas['bronze']}, silver={schemas['silver']}, gold={schemas['gold']}"
+    )
     print("=" * 60)
 
     # Obtém métricas DLT da última execução de cada pipeline

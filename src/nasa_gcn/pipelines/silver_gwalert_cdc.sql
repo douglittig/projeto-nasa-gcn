@@ -27,7 +27,8 @@ WHERE topic = 'igwn.gwalert'
 -- Target streaming table for AUTO CDC
 CREATE OR REFRESH STREAMING TABLE gcn_gwalert
 COMMENT 'IGWN Gravitational Wave Alerts with SCD Type 2 history tracking'
-CLUSTER BY (event_id);
+CLUSTER BY (event_id)
+TBLPROPERTIES ('delta.enableRowTracking' = 'true');
 
 -- AUTO CDC flow: Deduplicates by event_id, orders by kafka_timestamp
 CREATE FLOW gwalert_cdc_flow AS

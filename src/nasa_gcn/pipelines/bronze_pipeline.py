@@ -11,7 +11,6 @@ Migrated from DLT to Spark Declarative Pipelines (SDP) - February 2026
 
 # Bootstrap: configure sys.path for Free Edition (see _bootstrap.py for details)
 import _bootstrap
-
 from pyspark import pipelines as dp
 from pyspark.sql.functions import col, current_timestamp
 
