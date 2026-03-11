@@ -19,7 +19,7 @@
 
 CREATE OR REPLACE MATERIALIZED VIEW gcn_events_summary
 COMMENT 'Consolidated astronomical events with scientific narratives'
-CLUSTER BY (event_id, alert_type)
+CLUSTER BY AUTO
 AS
 WITH agg_circulars AS (
     SELECT
