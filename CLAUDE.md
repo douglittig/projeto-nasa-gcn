@@ -66,7 +66,7 @@ uv sync --dev
 pytest
 
 # Executar teste específico
-pytest tests/test_utils.py::test_decode_utf8 -v
+pytest tests/main_test.py::test_format_number -v
 
 # Executar testes com cobertura
 pytest --cov=nasa_gcn --cov-report=term-missing
@@ -174,8 +174,10 @@ Ver `_bootstrap.py` para documentação completa sobre a arquitetura.
 - Pipelines Silver/Gold usam `spark.readStream.table()` para ler de tabelas de outros pipelines
 - Cada pipeline tem sua própria configuração de catalog/schema via `spark.conf.get()`
 - Usar `from pyspark import pipelines as dp` (não `import dlt`)
-- **`cluster_by` não é suportado** em `@dp.materialized_view()` no Python API - usar SQL com `CLUSTER BY AUTO` como alternativa
-- **Sintaxe `CLUSTER BY AUTO`**: Usar **sem parênteses** - `CLUSTER BY AUTO` (correto) vs `CLUSTER BY (AUTO)` (incorreto - interpreta AUTO como coluna)
+- **`cluster_by` não é suportado** em `@dp.materialized_view()` no Python API - usar SQL com `CLUSTER BY (coluna)` como alternativa
+- **Sintaxe `CLUSTER BY AUTO`**: Usar **sem parênteses** - `CLUSTER BY AUTO` (correto) vs `CLUSTER BY (AUTO)` (incorreto - interpreta AUTO como coluna). Em produção, preferir chaves manuais para padrões de acesso conhecidos.
+- **`DESCRIBE DETAIL` não funciona em materialized views**: Esse comando Delta só funciona em tabelas físicas (streaming tables). Materialized views são registradas como views no Unity Catalog — usar `SELECT COUNT(*) FROM mv` como fallback. Ver `main.py:get_table_count()` para padrão implementado.
+- **Gold MVs fazem full-refresh a cada execução**: Esperado — `gcn_events_summary` faz JOIN com `gcn_gwalert` (SCD Type 2), o que impede refresh incremental. Não é bug.
 
 ### Configurações SDP Implementadas
 
@@ -195,6 +197,15 @@ table_properties={
 - `gcn_notices`: valid_notice_id
 - `gcn_classic_binary`: valid_parse (parse_error IS NULL)
 - `gcn_gwalert`: valid_event_id
+
+**Row Tracking (Silver - gcn_circulars, gcn_notices, gcn_gwalert):**
+```python
+table_properties={
+    ...,
+    "delta.enableRowTracking": "true",
+}
+```
+Habilita refresh incremental das materialized views Gold que fazem join com essas tabelas.
 
 **Change Data Feed (Gold):**
 ```python
@@ -233,22 +244,23 @@ Use `python scripts/encode_credentials.py` para codificar credenciais. O `deploy
 ### Adicionando Nova Agregação Gold
 
 1. Adicione nova `MATERIALIZED VIEW` em `src/nasa_gcn/pipelines/gold_pipeline.sql`
-2. Use `CLUSTER BY AUTO` para otimização automática de layout
+2. Use `CLUSTER BY (colunas)` com as dimensões de filtro mais comuns (ver seção de performance)
 3. Referencie tabelas Silver via `${silver_catalog}.${silver_schema}.table_name`
 
 ```sql
 CREATE OR REPLACE MATERIALIZED VIEW nova_agregacao
 COMMENT 'Descrição da agregação'
-CLUSTER BY AUTO
+CLUSTER BY (dimensao_principal, dimensao_secundaria)
 AS
 SELECT ...
 FROM `${silver_catalog}`.`${silver_schema}`.tabela_silver;
 ```
 
+Para MVs sem padrão de acesso definido, `CLUSTER BY AUTO` é aceitável em desenvolvimento.
+
 ### Problemas Conhecidos
 
 - **Teste falhando:** `tests/main_test.py::test_get_logger` - asserção de handler do logger falha
-- **Contagens lentas:** `main.py` usa `.count()` em tabelas grandes (3M+ linhas) - considerar event log do SDP
 - **Exceções genéricas:** `config.py:45-46` e `binary_parser.py:369-372` engolem erros silenciosamente
 
 Veja `TECHNICAL_DEBT.md` para rastreamento completo de issues e planejamento de sprints.
@@ -260,7 +272,8 @@ Veja `TECHNICAL_DEBT.md` para rastreamento completo de issues e planejamento de 
 | `src/nasa_gcn/pipelines/_bootstrap.py` | Setup de ambiente (Free Edition workaround) |
 | `src/nasa_gcn/pipelines/bronze_pipeline.py` | Bronze: Ingestão Kafka para `gcn_raw` |
 | `src/nasa_gcn/pipelines/silver_pipeline.py` | Silver: Parsing por tópico (7 tabelas) |
-| `src/nasa_gcn/pipelines/gold_pipeline.sql` | Gold: Agregações e enriquecimentos (SQL com CLUSTER BY AUTO) |
+| `src/nasa_gcn/pipelines/silver_gwalert_cdc.sql` | Silver: AUTO CDC para `gcn_gwalert` (SCD Type 2) |
+| `src/nasa_gcn/pipelines/gold_pipeline.sql` | Gold: Agregações — `gcn_events_summary` (CLUSTER BY AUTO), `gcn_daily_stats` (CLUSTER BY date) |
 | `src/nasa_gcn/binary_parser.py` | Decodificador de pacotes binários GCN (fonte da verdade) |
 | `src/nasa_gcn/schemas.py` | Schemas PySpark para todos os tópicos GCN |
 | `src/nasa_gcn/config.py` | Configuração do Kafka e credenciais |

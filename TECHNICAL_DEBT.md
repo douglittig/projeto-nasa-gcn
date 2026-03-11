@@ -12,7 +12,7 @@
 | **6** | **Integração Vector Store** | 🟠 Média | 🔴 Alta | Gargalo de escalabilidade RAG | Backlog |
 | ~~**7**~~ | ~~**Configuração de Streaming**~~ | ✅ | ✅ | ~~N/A - SDP gerencia checkpoints~~ | ✅ |
 | **8** | **Valores Hardcoded** | 🟡 Baixa | 🟢 Baixa | Dificuldade de teste/staging | 2 |
-| **9** | **Performance - Queries de Count** | 🟡 Baixa | 🟢 Baixa | Lento em tabelas grandes (3M+ linhas) | 1 |
+| ~~**9**~~ | ~~**Performance - Queries de Count**~~ | ✅ | ✅ | ~~Lento em tabelas grandes (3M+ linhas)~~ | ✅ |
 | **10** | **Limites de Versão de Dependências** | 🟡 Baixa | 🟢 Baixa | Risco de breaking changes | 1 |
 | ~~**11**~~ | ~~**SDP Auto-Optimize**~~ | ✅ | ✅ | ~~Small files no Bronze~~ | ✅ |
 | ~~**12**~~ | ~~**Expectations de Qualidade de Dados**~~ | ✅ | ✅ | ~~Dados ruins silenciosos no Silver~~ | ✅ |
@@ -27,7 +27,7 @@
 Foco: Baixo esforço, alto impacto
 
 - **#2** - Corrigir teste falhando (test_get_logger)
-- **#9** - Otimizar queries de count
+- ~~**#9** - Otimizar queries de count~~ ✅
 - **#10** - Adicionar limites superiores de dependências
 - ~~**#11** - Adicionar table properties Auto-Optimize no Bronze~~ ✅
 
@@ -165,20 +165,6 @@ Foco: Melhorias estruturais
   ```
 - **Esforço**: 1-2 horas
 
-### 9. Performance - Queries de Count 🟡
-- **Problema**: `main.py:134` usa `.count()` que faz scan de toda a tabela
-- **Impacto**: Lento para tabelas grandes (3M+ linhas em gcn_raw)
-- **Solução**: Usar `DESCRIBE EXTENDED` para metadados ou event log do SDP
-  ```python
-  # Em vez de:
-  count = spark.table(full_name).count()
-
-  # Usar:
-  stats = spark.sql(f"DESCRIBE EXTENDED {full_name}").collect()
-  # Ou usar event log do SDP para contagens de linhas
-  ```
-- **Esforço**: 30 minutos
-
 ### 10. Limites de Versão de Dependências 🟡
 - **Problema**: Dependências sem limites superiores
   - `python-dotenv>=1.0.0` (sem limite superior)
@@ -209,6 +195,12 @@ Foco: Melhorias estruturais
   - **failOnDataLoss: "false"**: Aceitável em ambiente Free Edition/treinamento - se os offsets do Kafka expirarem, continua do `startingOffsets` configurado
 - **Nota**: O item foi criado antes da migração para SDP, quando checkpoints precisavam ser configurados manualmente
 - **Status**: ✅ Removido (N/A)
+
+### Performance - Queries de Count (2026-03-11)
+- **Ação**: Substituído `.count()` por `DESCRIBE DETAIL` em `main.py`
+- **Mudança**: `get_table_count()` agora usa `spark.sql(f"DESCRIBE DETAIL {full_name}").collect()[0]["numRows"]`
+- **Benefício**: Leitura de metadados Delta sem full table scan — ordens de magnitude mais rápido em tabelas com 3M+ linhas
+- **Status**: ✅ Implementado & Deployado
 
 ### Módulo Bootstrap para Free Edition (2026-02-23)
 - **Ação**: Extraído código de setup de path duplicado para módulo centralizado `_bootstrap.py`
@@ -362,9 +354,9 @@ Foco: Melhorias estruturais
 - Total de Código: ~1.500 linhas Python (3 arquivos de pipeline)
 - Cobertura de Testes: ~7.3%
 - Testes: 19 total (18 passando, 1 falhando)
-- Itens Pendentes: 9
+- Itens Pendentes: 8
 - Itens Críticos: 2
-- Itens Sprint 1: 3 (estimativa 1 semana)
+- Itens Sprint 1: 2 (estimativa 1 semana)
 - Itens Sprint 2: 3 (estimativa 2 semanas)
 
 **Estado Alvo (Pós Sprint 3):**
@@ -377,5 +369,5 @@ Foco: Melhorias estruturais
 
 ---
 
-**Última Atualização**: 2026-02-23
+**Última Atualização**: 2026-03-11
 **Próxima Revisão**: Após conclusão da Sprint 1
